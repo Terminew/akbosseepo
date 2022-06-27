@@ -4,94 +4,75 @@ from telegram.ext import CommandHandler
 from threading import Thread
 from time import sleep
 
-from bot.helper.mirror.upload.gdrive_helper import GoogleDriveHelper
-from bot.helper.tg_helper.msg_utils import (
-    sendMessage,
-    sendMarkup,
-    deleteMessage,
-    delete_all_messages,
-    update_all_messages,
-    sendStatusMessage,
-)
-from bot.helper.tg_helper.filters import CustomFilters
-from bot.helper.mirror.status.clone_status import CloneStatus
-from bot import (
-    dispatcher,
-    LOGGER,
-    CLONE_LIMIT,
-    STOP_DUPLICATE,
-    download_dict,
-    download_dict_lock,
-    Interval,
-)
-from bot.helper.others.bot_utils import *
-from bot.helper.mirror.download.link_generator import *
-from bot.helper.others.exceptions import DirectDownloadLinkException
-
+from bot.helper.mirror_utils.upload_utils.gdriveTools import GoogleDriveHelper
+from bot.helper.telegram_helper.message_utils import sendMessage, sendMarkup,deleteMessage,delete_all_messages,update_all_messages,sendStatusMessage, auto_delete_message
+from bot.helper.telegram_helper.filters import CustomFilters
+from bot.helper.telegram_helper.bot_commands import BotCommands
+from bot.helper.mirror_utils.status_utils.clone_status import CloneStatus
+from bot import bot,dispatcher,LOGGER,CLONE_LIMIT,STOP_DUPLICATE,download_dict,download_dict_lock,Interval, BOT_PM, MIRROR_LOGS
+from bot.helper.ext_utils.bot_utils import *
+from bot.helper.mirror_utils.download_utils.direct_link_generator import *
+from bot.helper.ext_utils.exceptions import *
+from telegram import ParseMode, InlineKeyboardMarkup
+from bot.helper.telegram_helper.button_build import ButtonMaker
 
 def _clone(message, bot, multi=0):
-    arguments = message.text.split(" ", maxsplit=1)
+    buttons = ButtonMaker()
+    if AUTO_DELETE_UPLOAD_MESSAGE_DURATION != -1:
+        reply_to = message.reply_to_message
+        if reply_to is not None:
+            reply_to.delete()
+    if BOT_PM:
+        try:
+            msg1 = f'Added your Requested link to Download\n'
+            send = bot.sendMessage(message.from_user.id, text=msg1)
+            send.delete()
+        except Exception as e:
+            LOGGER.warning(e)
+            bot_d = bot.get_me()
+            b_uname = bot_d.username
+            uname = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>'
+            botstart = f"http://t.me/{b_uname}"
+            buttons.buildbutton("Click Here to Start Me", f"{botstart}")
+            startwarn = f"Dear {uname},\n\n<b>I found that you haven't started me in PM (Private Chat) yet.</b>\n\nFrom now on i will give link and leeched files in PM and log channel only"
+            message = sendMarkup(startwarn, bot, message, InlineKeyboardMarkup(buttons.build_menu(2)))
+            Thread(target=auto_delete_message, args=(bot, message, message)).start()
+            return
+    args = message.text.split(" ", maxsplit=1)
     reply_to = message.reply_to_message
-    link = ""
-    if len(arguments) > 1:
-        link = arguments[1]
+    link = ''
+    if len(args) > 1:
+        link = args[1]
         if link.isdigit():
             multi = int(link)
-            link = ""
+            link = ''
         elif message.from_user.username:
             tag = f"@{message.from_user.username}"
         else:
             tag = message.from_user.mention_html(message.from_user.first_name)
-    if reply_to is not None:
+    if reply_to:
         if len(link) == 0:
-            link = reply_to.text
+            link = reply_to.text.strip()
         if reply_to.from_user.username:
             tag = f"@{reply_to.from_user.username}"
         else:
             tag = reply_to.from_user.mention_html(reply_to.from_user.first_name)
     is_gdtot = is_gdtot_link(link)
-    is_appdrive = is_appdrive_link(link)
-    is_gdflix = is_gdflix_link(link)
-    is_driveapp = is_driveapp_link(link)
-    is_driveace = is_driveace_link(link)
-    is_drivelinks = is_drivelinks_link(link)
-    is_drivebit = is_drivebit_link(link)
-    is_drivesharer = is_drivesharer_link(link)
-    is_hubdrive = is_hubdrive_link(link)
-    is_drivehub = is_drivehub_link(link)
-    is_katdrive = is_katdrive_link(link)
-    is_kolop = is_kolop_link(link)
-    is_drivefire = is_drivefire_link(link)
-    if (is_gdtot or is_appdrive or is_gdflix or is_driveapp or is_driveace or is_drivelinks or is_drivebit or is_drivesharer or is_hubdrive or is_drivehub or is_katdrive or is_kolop or is_drivefire):
+    is_unified = is_unified_link(link)
+    is_udrive = is_udrive_link(link)
+    is_sharer = is_sharer_link(link)
+    if (is_gdtot or is_unified or is_udrive or is_sharer):
         try:
-            msg = sendMessage(f"<b>Processing:</b> <code>{link}</code>", bot, message)
+            msg = sendMessage(f"<b>{tag}, Your Link has been added for Cloning</b>\n\n <code>{link}</code>", bot, message)
             LOGGER.info(f"Processing: {link}")
-            if is_appdrive:
+            if is_unified:
                 link = unified(link)
             if is_gdtot:
                 link = gdtot(link)
-            if is_driveace:
-                link = unified(link)
-            if is_gdflix:
-                link = unified(link)
-            if is_driveapp:
-                link = unified(link)
-            if is_drivelinks:
-                link = unified(link)
-            if is_drivebit:
-                link = unified(link)
-            if is_drivesharer:
-                link = unified(link)
-            if is_hubdrive:
+            if is_udrive:
                 link = udrive(link)
-            if is_drivehub:
-                link = udrive(link)
-            if is_katdrive:
-                link = udrive(link)
-            if is_kolop:
-                link = udrive(link)
-            if is_drivefire:
-                link = udrive(link)
+            if is_sharer:
+                link = sharer_pw(link)
             deleteMessage(bot, msg)
         except DirectDownloadLinkException as e:
             deleteMessage(bot, msg)
@@ -105,7 +86,7 @@ def _clone(message, bot, multi=0):
             LOGGER.info("Checking File/Folder if already in Drive...")
             smsg, button = gd.drive_list(name, True, True)
             if smsg:
-                msg3 = "File/Folder is already available in Drive.\nHere are the search results:"
+                msg3 = f"<b>{tag}, Your File/Folder is already available in our Drive.</b>\n Your Link will not be cloned.\n\n Name:<code>{name}</code>"
                 return sendMarkup(msg3, bot, message, button)
         if CLONE_LIMIT is not None:
             LOGGER.info("Checking File/Folder Size...")
@@ -113,19 +94,12 @@ def _clone(message, bot, multi=0):
                 msg2 = f"Failed, Clone limit is {CLONE_LIMIT}GB.\nYour File/Folder size is {get_readable_file_size(size)}."
                 return sendMessage(msg2, bot, message)
         if multi > 1:
-            sleep(2)
-            nextmsg = type(
-                "nextmsg",
-                (object,),
-                {
-                    "chat_id": message.chat_id,
-                    "message_id": message.reply_to_message.message_id + 1,
-                },
-            )
-            nextmsg = sendMessage(arguments[0], bot, nextmsg)
+            sleep(4)
+            nextmsg = type("nextmsg",(object, ), {"chat_id": message.chat_id, "message_id": message.reply_to_message.message_id + 1})
+            nextmsg = sendMessage(args[0], bot, nextmsg)
             nextmsg.from_user.id = message.from_user.id
             multi -= 1
-            sleep(2)
+            sleep(4)
             Thread(target=_clone, args=(nextmsg, bot, multi)).start()
         if files <= 20:
             msg = sendMessage(f"Cloning: <code>{link}</code>", bot, message)
@@ -151,31 +125,33 @@ def _clone(message, bot, multi=0):
                     update_all_messages()
             except IndexError:
                 pass
-        cc = f"\n\n<b>cc: </b>{tag}"
+        cc = f"\n\n<b>#Cloned cc: </b>{tag}"
         if button in ["cancelled", ""]:
             sendMessage(f"{tag} {result}", bot, message)
         else:
             sendMarkup(result + cc, bot, message, button)
             LOGGER.info(f"Cloning Done: {name}")
-        if (is_gdtot or is_appdrive or is_gdflix or is_driveapp or is_driveace or is_drivelinks or is_drivebit or is_drivesharer or is_hubdrive or is_drivehub or is_katdrive or is_kolop or is_drivefire):
+        if (is_gdtot or  is_unified or is_udrive or is_sharer):
             gd.deletefile(link)
+        if MIRROR_LOGS:
+            try:
+                for chatid in MIRROR_LOGS:
+                    bot.sendMessage(chat_id=chatid, text=result + cc, reply_markup=button, parse_mode=ParseMode.HTML)
+            except Exception as e:
+                LOGGER.warning(e)
+        if BOT_PM and message.chat.type != 'private':
+            try:
+                bot.sendMessage(message.from_user.id, text=result, reply_markup=button, parse_mode=ParseMode.HTML)
+            except Exception as e:
+                LOGGER.warning(e)
+                return
     else:
-        sendMessage(
-            "Send Gdrive or GDToT or Similar Drive Crypt Links along with command or by replying to the link by command",
-            bot,
-            message,
-        )
-
+        sendMessage("This Link Cannot be cloned, Use /help to get bot commands", bot, message)
 
 @new_thread
 def cloneNode(update, context):
     _clone(update.message, context.bot)
 
 
-clone_handler = CommandHandler(
-    BotCommands.CloneCommand,
-    cloneNode,
-    filters=CustomFilters.authorized_chat | CustomFilters.authorized_user,
-    run_async=True,
-)
+clone_handler = CommandHandler(BotCommands.CloneCommand, cloneNode, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
 dispatcher.add_handler(clone_handler)
