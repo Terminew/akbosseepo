@@ -272,4 +272,3 @@ class DbManger:
 
 if DB_URI is not None:
     DbManger().db_init()
-
