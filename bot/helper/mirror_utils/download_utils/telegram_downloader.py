@@ -1,10 +1,11 @@
-from logging import getLogger, WARNING
-from time import time
+from logging import *
+from time import *
+from threading import *
 from threading import RLock, Lock
-from pyrogram import Client, enums
-
+from pyrogram import *
 from bot import LOGGER, download_dict, download_dict_lock, STOP_DUPLICATE, STORAGE_THRESHOLD, app
 from bot.helper.ext_utils.bot_utils import get_readable_file_size
+from .download_helper import DownloadHelper
 from ..status_utils.telegram_download_status import TelegramDownloadStatus
 from bot.helper.telegram_helper.message_utils import sendMarkup, sendMessage, sendStatusMessage
 from bot.helper.mirror_utils.upload_utils.gdriveTools import GoogleDriveHelper
@@ -14,9 +15,7 @@ global_lock = Lock()
 GLOBAL_GID = set()
 getLogger("pyrogram").setLevel(WARNING)
 
-
-class TelegramDownloadHelper:
-
+class TelegramDownloadHelper(DownloadHelper):
     def __init__(self, listener):
         self.name = ""
         self.size = 0
@@ -27,7 +26,7 @@ class TelegramDownloadHelper:
         self.__id = ""
         self.__is_cancelled = False
         self.__resource_lock = RLock()
-
+        
     @property
     def download_speed(self):
         with self.__resource_lock:
@@ -104,8 +103,9 @@ class TelegramDownloadHelper:
                     LOGGER.info('Checking File/Folder if already in Drive...')
                     smsg, button = GoogleDriveHelper().drive_list(name, True, True)
                     if smsg:
-                        msg = "File/Folder is already available in Drive.\nHere are the search results:"
-                        return sendMarkup(msg, self.__listener.bot, self.__listener.message, button)
+                        sendMarkup("File/Folder is already available in Drive.\nHere are the search results:", self.__listener.bot, self.__listener.message, button)
+                        return 
+                    #sendMarkup(msg, self.__listener.bot, self.__listener.message, button)
                 if STORAGE_THRESHOLD is not None:
                     arch = any([self.__listener.isZip, self.__listener.extract])
                     acpt = check_storage_threshold(size, arch)
