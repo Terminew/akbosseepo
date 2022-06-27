@@ -4,6 +4,7 @@ config.env
 data*
 .vscode
 .idea
+*.env
 *.json
 *.pickle
 .netrc
