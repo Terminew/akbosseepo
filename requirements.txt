@@ -26,15 +26,9 @@ python-magic
 python-telegram-bot
 qbittorrent-api
 requests
+speedtest-cli
 telegraph
 tenacity
 tgCrypto
 urllib3
 yt-dlp
-oauth2client
-google-api-python-client
-progress
-progressbar2
-httplib2shim
-google_auth_oauthlib
-pyrogram>=2
