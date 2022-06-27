@@ -11,7 +11,7 @@ def getCommand(name: str, command: str):
 
 class _BotCommands:
     def __init__(self):
-        self.StartCommand = getCommand(f'START_COMMAND', f'start{CMD_INDEX}')
+        self.StartCommand = getCommand(f'START_COMMAND', f'start')
         self.MirrorCommand = getCommand('MIRROR_COMMAND', f'mirror{CMD_INDEX}')
         self.UnzipMirrorCommand = getCommand('UNZIP_COMMAND', f'unzipmirror{CMD_INDEX}')
         self.ZipMirrorCommand = getCommand('ZIP_COMMAND', f'zipmirror{CMD_INDEX}')
@@ -55,10 +55,11 @@ class _BotCommands:
         self.RssSubCommand = getCommand('RSSSUB_COMMAND', f'rsssub{CMD_INDEX}')
         self.RssUnSubCommand = getCommand('RSSUNSUB_COMMAND', f'rssunsub{CMD_INDEX}')
         self.RssSettingsCommand = getCommand('RSSSET_COMMAND', f'rssset{CMD_INDEX}')
-        self.EvalCommand = f'eval{CMD_INDEX}'
-        self.ExecCommand = f'exec{CMD_INDEX}'
-        self.ClearLocalsCommand = f'clearlocals{CMD_INDEX}'
+        self.EvalCommand = getCommand('EVAL_COMMAND', f'eval{CMD_INDEX}')
+        self.ExecCommand = getCommand('EXEC_COMMAND', f'exec{CMD_INDEX}')
+        self.ClearLocalsCommand = getCommand('CLEARLOCALS_COMMAND', f'clearlocals{CMD_INDEX}')
         self.AddleechlogCommand = getCommand('ADDLEECHLOG_COMMAND', f'addleechlog{CMD_INDEX}')
         self.RmleechlogCommand = getCommand('RMLEECHLOG_COMMAND', f'rmleechlog{CMD_INDEX}')
+        self.SpeedtestCommand = getCommand('SPEEDTEST_COMMAND', f'speedtest{CMD_INDEX}')
 
 BotCommands = _BotCommands()
