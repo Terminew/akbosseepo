@@ -96,9 +96,8 @@ def restart(update, context):
     restart_message = sendMessage("Restarting...", context.bot, update.message)
     if Interval:
         Interval[0].cancel()
-    alive.kill()
     clean_all()
-    srun(["pkill", "-9", "-f", "gunicorn|extra-api|last-api|megasdkrest|new-api"])
+    srun(["pkill", "-9", "-f", "gunicorn|aria2c|qbittorrent-nox"])
     srun(["python3", "update.py"])
     with open(".restartmsg", "w") as f: 
         f.truncate(0)
@@ -250,10 +249,8 @@ def main():
                      bot.editMessageText(msg, chat_id, msg_id, parse_mode='HTMl', disable_web_page_preview=True)
                      osremove(".restartmsg")
                 else:
-                    try:
-                        bot.sendMessage(cid, msg, 'HTML')
-                    except Exception as e:
-                        LOGGER.error(e)
+                    bot.sendMessage(cid, msg, 'HTML')
+                    
 
     if ospath.isfile(".restartmsg"):
         with open(".restartmsg") as f:
@@ -280,7 +277,7 @@ def main():
     LOGGER.info("Bot Started!")
     signal(SIGINT, exit_clean_up)
     
-app.start()
 main()
+app.start()
 
 main_loop.run_forever()
