@@ -1,13 +1,25 @@
-from time import sleep
-from telegram import InlineKeyboardMarkup
+import shutil, psutil
+import logging
+import threading
+from re import match as re_match, findall as re_findall
+from threading import Thread, Event
+from time import time, sleep
+from math import ceil
+from html import escape
+from psutil import virtual_memory, cpu_percent, disk_usage
+from requests import head as rhead
+
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.error import TimedOut, BadRequest, RetryAfter
 from telegram.message import Message
-from telegram.error import RetryAfter
+from telegram.update import Update
 from pyrogram.errors import FloodWait
+from telegram.ext import CallbackQueryHandler, CallbackContext
 
-from bot import AUTO_DELETE_MESSAGE_DURATION, LOGGER, status_reply_dict, status_reply_dict_lock, \
-                Interval, DOWNLOAD_STATUS_UPDATE_INTERVAL, RSS_CHAT_ID, bot, rss_session
-from bot.helper.ext_utils.bot_utils import get_readable_message, setInterval
-
+from bot import *
+from bot.helper.telegram_helper.bot_commands import BotCommands
+from bot.helper.telegram_helper.button_build import ButtonMaker
+from bot.helper.ext_utils.bot_utils import *
 
 def sendMessage(text: str, bot, message: Message):
     try:
@@ -72,6 +84,20 @@ def sendRss(text: str, bot):
             LOGGER.error(str(e))
             return
 
+
+async def sendRss_pyro(text: str):
+    rss_session = Client(name='rss_session', api_id=int(TELEGRAM_API), api_hash=TELEGRAM_HASH, session_string=USER_STRING_SESSION, parse_mode=enums.ParseMode.HTML)
+    await rss_session.start()
+    try:
+        return await rss_session.send_message(RSS_CHAT_ID, text, disable_web_page_preview=True)
+    except FloodWait as e:
+        LOGGER.warning(str(e))
+        await asleep(e.value * 1.5)
+        return await sendRss(text)
+    except Exception as e:
+        LOGGER.error(str(e))
+        return
+    
 def deleteMessage(bot, message: Message):
     try:
         bot.deleteMessage(chat_id=message.chat.id,
@@ -103,6 +129,18 @@ def delete_all_messages():
                 del status_reply_dict[message.chat.id]
             except Exception as e:
                 LOGGER.error(str(e))
+                
+def auto_delete_upload_message(bot, cmd_message: Message, bot_message: Message):
+    if cmd_message.chat.type == 'private':
+        pass
+    elif AUTO_DELETE_UPLOAD_MESSAGE_DURATION != -1:
+        sleep(AUTO_DELETE_UPLOAD_MESSAGE_DURATION)
+        try:
+            # Skip if None is passed meaning we don't want to delete bot or cmd message
+            deleteMessage(bot, cmd_message)
+            deleteMessage(bot, bot_message)
+        except AttributeError:
+            pass                
 
 def update_all_messages():
     msg, buttons = get_readable_message()
