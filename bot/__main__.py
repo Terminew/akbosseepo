@@ -69,7 +69,7 @@ def stats(update, context):
 
 """
     keyboard = [[InlineKeyboardButton("CLOSE", callback_data="stats_close")]]
-    main = sendMarkup(stats, context.bot, update.message, reply_markup=InlineKeyboardMarkup(keyboard))
+    myStats = sendMarkup(stats, context.bot, update.message, reply_markup=InlineKeyboardMarkup(keyboard))
 
 def call_back_data(update, context):
     global myStats
