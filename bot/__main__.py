@@ -21,7 +21,7 @@ from .helper.telegram_helper.button_build import ButtonMaker
 from .modules import authorize, list, cancel_mirror, mirror_status, mirror, clone, watch, shell, eval, delete, count, leech_settings, search, rss
 
 def stats(update, context):
-    global main
+    global myStats
     if ospath.exists('.git'):
         last_commit = check_output(["git log -1 --date=short --pretty=format:'%cd <b>From</b> %cr'"], shell=True).decode()
     else:
@@ -72,11 +72,11 @@ def stats(update, context):
     main = sendMarkup(stats, context.bot, update.message, reply_markup=InlineKeyboardMarkup(keyboard))
 
 def call_back_data(update, context):
-    global main
+    global myStats
     query = update.callback_query
     query.answer()
-    main.delete()
-    main = None   
+    myStats.delete()
+    myStats = None   
     
 def start(update, context) -> None:
     buttons = ButtonMaker()
