@@ -30,22 +30,6 @@ basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 
 LOGGER = getLogger(__name__)
 
-CONFIG_FILE_URL = environ.get('CONFIG_FILE_URL')
-try:
-    if len(CONFIG_FILE_URL) == 0:
-        raise TypeError
-    try:
-        res = rget(CONFIG_FILE_URL)
-        if res.status_code == 200:
-            with open('config.env', 'wb+') as f:
-                f.write(res.content)
-        else:
-            log_error(f"Failed to download config.env {res.status_code}")
-    except Exception as e:
-        log_error(f"CONFIG_FILE_URL: {e}")
-except:
-    pass
-
 load_dotenv('config.env', override=True)
 
 def getConfig(name: str):
@@ -68,29 +52,22 @@ except:
     pass
 
 try:
-    TORRENT_TIMEOUT = getConfig('TORRENT_TIMEOUT')
-    if len(TORRENT_TIMEOUT) == 0:
+    SERVER_PORT = getConfig('SERVER_PORT')
+    if len(SERVER_PORT) == 0:
         raise KeyError
-    TORRENT_TIMEOUT = int(TORRENT_TIMEOUT)
 except:
-    TORRENT_TIMEOUT = None
+    SERVER_PORT = 80
 
-PORT = environ.get('PORT')
+PORT = environ.get('PORT', SERVER_PORT)
 Popen([f"gunicorn web.wserver:app --bind 0.0.0.0:{PORT}"], shell=True)
 srun(["qbittorrent-nox", "-d", "--profile=."])
 if not ospath.exists('.netrc'):
     srun(["touch", ".netrc"])
 srun(["cp", ".netrc", "/root/.netrc"])
 srun(["chmod", "600", ".netrc"])
-trackers = check_output(["curl -Ns https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/all.txt https://ngosang.github.io/trackerslist/trackers_all_http.txt https://newtrackon.com/api/all https://raw.githubusercontent.com/hezhijie0327/Trackerslist/main/trackerslist_tracker.txt | awk '$0' | tr '\n\n' ','"], shell=True).decode('utf-8').rstrip(',')
-if TORRENT_TIMEOUT is not None:
-    with open("a2c.conf", "a+") as a:
-        a.write(f"bt-stop-timeout={TORRENT_TIMEOUT}\n")
-with open("a2c.conf", "a+") as a:
-    a.write(f"bt-tracker={trackers}")
-srun(["extra-api", "--conf-path=/usr/src/app/a2c.conf"])
-alive = Popen(["python3", "alive.py"])
-sleep(0.5)
+srun(["chmod", "+x", "aria.sh"])
+srun(["./aria.sh"], shell=True)
+
 
 Interval = []
 DRIVES_NAMES = []
@@ -219,34 +196,47 @@ def aria2c_init():
     except Exception as e:
         log_error(f"Aria2c initializing error: {e}")
 Thread(target=aria2c_init).start()
+sleep(1.5)
 
 try:
-    MEGA_KEY = getConfig('MEGA_API_KEY')
-    if len(MEGA_KEY) == 0:
-        raise KeyError
-except:
-    MEGA_KEY = None
-    LOGGER.info('MEGA_API_KEY not provided!')
-if MEGA_KEY is not None:
+    MEGAREST = getConfig('MEGAREST')
+    MEGAREST = MEGAREST.lower() == 'true'
+except KeyError:
+    MEGAREST = False
+try:
+    MEGA_API_KEY = getConfig("MEGA_API_KEY")
+except KeyError:
+    MEGA_API_KEY = None
+    LOGGER.info("MEGA API KEY NOT AVAILABLE")
+if MEGAREST is True:
     # Start megasdkrest binary
-    Popen(["megasdkrest", "--apikey", MEGA_KEY])
+    Popen(["megasdkrest", "--apikey", MEGA_API_KEY])
     sleep(3)  # Wait for the mega server to start listening
-    mega_client = MegaSdkRestClient('http://localhost:6090')
+    mega_client = MegaSdkRestClient("http://localhost:6090")
     try:
-        MEGA_USERNAME = getConfig('MEGA_EMAIL_ID')
-        MEGA_PASSWORD = getConfig('MEGA_PASSWORD')
-        if len(MEGA_USERNAME) > 0 and len(MEGA_PASSWORD) > 0:
+        MEGA_EMAIL_ID = getConfig("MEGA_EMAIL_ID")
+        MEGA_PASSWORD = getConfig("MEGA_PASSWORD")
+        if len(MEGA_EMAIL_ID) > 0 and len(MEGA_PASSWORD) > 0:
             try:
-                mega_client.login(MEGA_USERNAME, MEGA_PASSWORD)
+                mega_client.login(MEGA_EMAIL_ID, MEGA_PASSWORD)
             except mega_err.MegaSdkRestClientException as e:
-                log_error(e.message['message'])
+                logging.error(e.message["message"])
                 exit(0)
         else:
-            log_info("Mega API KEY provided but credentials not provided. Starting mega in anonymous mode!")
-    except:
-        log_info("Mega API KEY provided but credentials not provided. Starting mega in anonymous mode!")
+            LOGGER.info(
+                "Mega API KEY provided but credentials not provided. Starting mega in anonymous mode!"
+            )
+            MEGA_EMAIL_ID = None
+            MEGA_PASSWORD = None
+    except KeyError:
+        LOGGER.info(
+            "Mega API KEY provided but credentials not provided. Starting mega in anonymous mode!"
+        )
+        MEGA_EMAIL_ID = None
+        MEGA_PASSWORD = None
 else:
-    sleep(1.5)
+    MEGA_EMAIL_ID = None
+    MEGA_PASSWORD = None
 
 try:
     BASE_URL = getConfig('BASE_URL_OF_BOT').rstrip("/")
