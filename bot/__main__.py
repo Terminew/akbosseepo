@@ -8,6 +8,7 @@ import importlib
 from sys import executable
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import *
+from telegram.update import Update
 import shutil
 from bot import bot, dispatcher, updater, botStartTime, IGNORE_PENDING_REQUESTS, LOGGER, Interval, INCOMPLETE_TASK_NOTIFIER, DB_URI, app, main_loop
 from .helper.ext_utils.fs_utils import start_cleanup, clean_all, exit_clean_up
@@ -73,9 +74,14 @@ def stats(update, context):
 
 def call_back_data(update, context):
     global myStats
+    chat_id  = update.effective_chat.id
+    user_id = update.callback_query.from_user.id
     query = update.callback_query
-    query.answer()
-    myStats.delete()
+    admins = bot.get_chat_member(chat_id, user_id).status in ['creator', 'administrator'] or user_id in [OWNER_ID]
+    if admins:
+        myStats.delete()
+    else:
+        query.answer(text="Why are you Gay!", show_alert=True)
     myStats = None   
     
 def start(update, context) -> None:
@@ -262,7 +268,7 @@ def main():
     ping_handler = CommandHandler(BotCommands.PingCommand, ping, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
     restart_handler = CommandHandler(BotCommands.RestartCommand, restart,filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
     help_handler = CommandHandler(BotCommands.HelpCommand, bot_help, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-    stats_handler = CommandHandler(BotCommands.StatsCommand,stats, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+    stats_handler = CommandHandler(BotCommands.StatsCommand,stats, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
     log_handler = CommandHandler(BotCommands.LogCommand, log, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
     del_data_msg = CallbackQueryHandler(call_back_data, pattern="stats_close")
     
