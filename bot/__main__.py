@@ -264,7 +264,7 @@ def main():
     help_handler = CommandHandler(BotCommands.HelpCommand, bot_help, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
     stats_handler = CommandHandler(BotCommands.StatsCommand,stats, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
     log_handler = CommandHandler(BotCommands.LogCommand, log, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
-    del_data_msg = CallbackQueryHandler(call_back_data, pattern="stats_close")
+    del_data_msg = CallbackQueryHandler(call_back_data, pattern="stats_close",filters=CustomFilters.owner_filter, run_async=True )
     
     dispatcher.add_handler(del_data_msg)
     dispatcher.add_handler(start_handler)
