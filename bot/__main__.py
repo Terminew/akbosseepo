@@ -2,14 +2,15 @@ from signal import signal, SIGINT
 from os import path as ospath, remove as osremove, execl as osexecl
 from subprocess import run as srun, check_output
 from psutil import disk_usage, cpu_percent, swap_memory, cpu_count, virtual_memory, net_io_counters, boot_time
-from time import time, sleep
+from time import time
 import threading
 import importlib
 from sys import executable
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import *
+from telegram.update import Update
 import shutil
-from bot import bot, dispatcher, updater, botStartTime, IGNORE_PENDING_REQUESTS, LOGGER, Interval, INCOMPLETE_TASK_NOTIFIER, DB_URI, alive, app, main_loop, OWNER_ID
+from bot import bot, dispatcher, updater, botStartTime, IGNORE_PENDING_REQUESTS, LOGGER, Interval, INCOMPLETE_TASK_NOTIFIER, DB_URI, app, main_loop, OWNER_ID
 from .helper.ext_utils.fs_utils import start_cleanup, clean_all, exit_clean_up
 from .helper.ext_utils.telegraph_helper import telegraph
 from .helper.ext_utils.bot_utils import get_readable_file_size, get_readable_time, progress_bar
@@ -21,7 +22,7 @@ from .helper.telegram_helper.button_build import ButtonMaker
 from .modules import authorize, list, cancel_mirror, mirror_status, mirror, clone, watch, shell, eval, delete, count, leech_settings, search, rss
 
 def stats(update, context):
-    global main
+    global myStats
     if ospath.exists('.git'):
         last_commit = check_output(["git log -1 --date=short --pretty=format:'%cd <b>From</b> %cr'"], shell=True).decode()
     else:
@@ -69,14 +70,19 @@ def stats(update, context):
 
 """
     keyboard = [[InlineKeyboardButton("CLOSE", callback_data="stats_close")]]
-    main = sendMarkup(stats, context.bot, update.message, reply_markup=InlineKeyboardMarkup(keyboard))
+    myStats = sendMarkup(stats, context.bot, update.message, reply_markup=InlineKeyboardMarkup(keyboard))
 
 def call_back_data(update, context):
-    global main
+    global myStats
+    chat_id  = update.effective_chat.id
+    user_id = update.callback_query.from_user.id
     query = update.callback_query
-    query.answer()
-    main.delete()
-    main = None   
+    admins = bot.get_chat_member(chat_id, user_id).status in ['creator', 'administrator'] or user_id in [OWNER_ID]
+    if admins:
+        myStats.delete()
+    else:
+        query.answer(text="Why are you Gay!", show_alert=True)
+    myStats = None   
     
 def start(update, context) -> None:
     buttons = ButtonMaker()
@@ -96,19 +102,14 @@ def restart(update, context):
     restart_message = sendMessage("Restarting...", context.bot, update.message)
     if Interval:
         Interval[0].cancel()
-    alive.kill()
     clean_all()
-    srun(["pkill", "-9", "-f", "gunicorn|extra-api|last-api|megasdkrest|new-api"])
+    srun(["pkill", "-9", "-f", "gunicorn|aria2c|qbittorrent-nox"])
     srun(["python3", "update.py"])
     with open(".restartmsg", "w") as f: 
         f.truncate(0)
         f.write(f"{restart_message.chat.id}\n{restart_message.message_id}\n")
     osexecl(executable, executable, "-m", "bot")
-    
-def upgradesudo(update, context):
-    reply = sendMessage("Starting to Upgrade from Latest Commit", context.bot, update.message)
-    sleep(5)
-    editMessage("Why are you Lazy..?", reply)
+
 
 def ping(update, context):
     start_time = int(round(time() * 1000))
@@ -254,28 +255,23 @@ def main():
                      bot.editMessageText(msg, chat_id, msg_id, parse_mode='HTMl', disable_web_page_preview=True)
                      osremove(".restartmsg")
                 else:
-                    try:
-                        bot.sendMessage(cid, msg, 'HTML')
-                    except Exception as e:
-                        LOGGER.error(e)
+                    bot.sendMessage(cid, msg, 'HTML')
+                    
 
     if ospath.isfile(".restartmsg"):
         with open(".restartmsg") as f:
             chat_id, msg_id = map(int, f)
         bot.edit_message_text("Restarted successfully!", chat_id, msg_id)
         osremove(".restartmsg")
-        
 
     start_handler = CommandHandler(BotCommands.StartCommand, start, run_async=True)
     ping_handler = CommandHandler(BotCommands.PingCommand, ping, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
     restart_handler = CommandHandler(BotCommands.RestartCommand, restart,filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
     help_handler = CommandHandler(BotCommands.HelpCommand, bot_help, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-    stats_handler = CommandHandler(BotCommands.StatsCommand,stats, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+    stats_handler = CommandHandler(BotCommands.StatsCommand,stats, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
     log_handler = CommandHandler(BotCommands.LogCommand, log, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
     del_data_msg = CallbackQueryHandler(call_back_data, pattern="stats_close")
-    upgradesudo_handler = CommandHandler(BotCommands.UpgradeCommand, upgradesudo,filters=CustomFilters.owner_filter, run_async=True)
     
-    dispatcher.add_handler(upgradesudo_handler)
     dispatcher.add_handler(del_data_msg)
     dispatcher.add_handler(start_handler)
     dispatcher.add_handler(ping_handler)
@@ -287,7 +283,7 @@ def main():
     LOGGER.info("Bot Started!")
     signal(SIGINT, exit_clean_up)
     
-app.start()
 main()
+app.start()
 
 main_loop.run_forever()
