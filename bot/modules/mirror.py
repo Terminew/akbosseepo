@@ -508,7 +508,7 @@ def _mirror(bot, message, isZip=False, extract=False, isQbit=False, isLeech=Fals
         help_msg += "\nor reply to link or file"
         help_msg += "\n\n<b>Multi links only by replying to first link or file:</b>"
         help_msg += "\n<code>/command</code> 10(number of links/files)"
-        Thread(target=auto_delete_message, args=(bot, update.message, msg)).start()
+        return sendMessage(help_msg, bot, message)
 
     LOGGER.info(link)
 
