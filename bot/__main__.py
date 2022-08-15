@@ -3,14 +3,15 @@ from os import path as ospath, remove as osremove, execl as osexecl
 from subprocess import run as srun, check_output
 from psutil import disk_usage, cpu_percent, swap_memory, cpu_count, virtual_memory, net_io_counters, boot_time
 from time import time
-import threading
+from threading import Thread
 import importlib
 from sys import executable
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import *
 from telegram.update import Update
 import shutil
-from bot import bot, dispatcher, updater, botStartTime, IGNORE_PENDING_REQUESTS, LOGGER, Interval, INCOMPLETE_TASK_NOTIFIER, DB_URI, app, main_loop, OWNER_ID
+from bot import bot, dispatcher, updater, botStartTime, IGNORE_PENDING_REQUESTS, LOGGER, Interval, INCOMPLETE_TASK_NOTIFIER, DB_URI, app, main_loop, OWNER_ID, \
+                USER_SESSION_STRING, app_session, GROUP_NAME, START_ONE_NAME, START_TWO_NAME, START_ONE_URL, START_TWO_URL
 from .helper.ext_utils.fs_utils import start_cleanup, clean_all, exit_clean_up
 from .helper.ext_utils.telegraph_helper import telegraph
 from .helper.ext_utils.bot_utils import get_readable_file_size, get_readable_time, progress_bar
@@ -19,7 +20,7 @@ from .helper.telegram_helper.bot_commands import BotCommands
 from .helper.telegram_helper.message_utils import sendMessage, sendMarkup, editMessage, sendLogFile
 from .helper.telegram_helper.filters import CustomFilters
 from .helper.telegram_helper.button_build import ButtonMaker
-from .modules import authorize, list, cancel_mirror, mirror_status, mirror, clone, watch, shell, eval, delete, count, leech_settings, search, rss
+from .modules import *
 
 def stats(update, context):
     global myStats
@@ -71,6 +72,7 @@ def stats(update, context):
 """
     keyboard = [[InlineKeyboardButton("CLOSE", callback_data="stats_close")]]
     myStats = sendMarkup(stats, context.bot, update.message, reply_markup=InlineKeyboardMarkup(keyboard))
+    Thread(target=auto_delete_message, args=(context.bot, update.message, main)).start()
 
 def call_back_data(update, context):
     global main
@@ -121,7 +123,6 @@ def ping(update, context):
 
 def log(update, context):
     sendLogFile(context.bot, update.message)
-
 
 help_string_telegraph = f'''<br>
 <b>/{BotCommands.HelpCommand}</b>: To get this message
