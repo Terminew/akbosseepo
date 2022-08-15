@@ -641,27 +641,19 @@ else:
     unzip_mirror_handler = CommandHandler(BotCommands.UnzipMirrorCommand, unzip_mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
     zip_mirror_handler = CommandHandler(BotCommands.ZipMirrorCommand, zip_mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
 
-if QB_ENABLE:
-    if QB_MIRROR_ENABLE:
-        qb_mirror_handler = CommandHandler(BotCommands.QbMirrorCommand, qb_mirror, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-        qb_unzip_mirror_handler = CommandHandler(BotCommands.QbUnzipMirrorCommand, qb_unzip_mirror, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-        qb_zip_mirror_handler = CommandHandler(BotCommands.QbZipMirrorCommand, qb_zip_mirror, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-    else:
-        qb_mirror_handler = CommandHandler(BotCommands.QbMirrorCommand, qb_mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
-        qb_unzip_mirror_handler = CommandHandler(BotCommands.QbUnzipMirrorCommand, qb_unzip_mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
-        qb_zip_mirror_handler = CommandHandler(BotCommands.QbZipMirrorCommand, qb_zip_mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
-    if QB_LEECH_ENABLE:
-        qb_leech_handler = CommandHandler(BotCommands.QbLeechCommand, qb_leech, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-        qb_unzip_leech_handler = CommandHandler(BotCommands.QbUnzipLeechCommand, qb_unzip_leech, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-        qb_zip_leech_handler = CommandHandler(BotCommands.QbZipLeechCommand, qb_zip_leech, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-    else:
-        qb_leech_handler = CommandHandler(BotCommands.QbLeechCommand, qb_leech, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
-        qb_unzip_leech_handler = CommandHandler(BotCommands.QbUnzipLeechCommand, qb_unzip_leech, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
-        qb_zip_leech_handler = CommandHandler(BotCommands.QbZipLeechCommand, qb_zip_leech, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+if QB_MIRROR_ENABLE:
+    qb_mirror_handler = CommandHandler(BotCommands.QbMirrorCommand, qb_mirror, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+    qb_unzip_mirror_handler = CommandHandler(BotCommands.QbUnzipMirrorCommand, qb_unzip_mirror, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+    qb_zip_mirror_handler = CommandHandler(BotCommands.QbZipMirrorCommand, qb_zip_mirror, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
 else:
     qb_mirror_handler = CommandHandler(BotCommands.QbMirrorCommand, qb_mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
     qb_unzip_mirror_handler = CommandHandler(BotCommands.QbUnzipMirrorCommand, qb_unzip_mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
     qb_zip_mirror_handler = CommandHandler(BotCommands.QbZipMirrorCommand, qb_zip_mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+if QB_LEECH_ENABLE:
+    qb_leech_handler = CommandHandler(BotCommands.QbLeechCommand, qb_leech, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+    qb_unzip_leech_handler = CommandHandler(BotCommands.QbUnzipLeechCommand, qb_unzip_leech, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+    qb_zip_leech_handler = CommandHandler(BotCommands.QbZipLeechCommand, qb_zip_leech, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+else:
     qb_leech_handler = CommandHandler(BotCommands.QbLeechCommand, qb_leech, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
     qb_unzip_leech_handler = CommandHandler(BotCommands.QbUnzipLeechCommand, qb_unzip_leech, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
     qb_zip_leech_handler = CommandHandler(BotCommands.QbZipLeechCommand, qb_zip_leech, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
