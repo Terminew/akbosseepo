@@ -11,7 +11,7 @@ from telegram.ext import *
 from telegram.update import Update
 import shutil
 from bot import bot, dispatcher, updater, botStartTime, IGNORE_PENDING_REQUESTS, LOGGER, Interval, INCOMPLETE_TASK_NOTIFIER, DB_URI, app, main_loop, OWNER_ID, \
-                USER_SESSION_STRING, app_session, GROUP_NAME, START_ONE_NAME, START_TWO_NAME, START_ONE_URL, START_TWO_URL
+                USER_SESSION_STRING, app_session, GROUP_NAME
 from .helper.ext_utils.fs_utils import start_cleanup, clean_all, exit_clean_up
 from .helper.ext_utils.telegraph_helper import telegraph
 from .helper.ext_utils.bot_utils import get_readable_file_size, get_readable_time, progress_bar
@@ -89,8 +89,8 @@ def call_back_data(update, context):
     
 def start(update, context) -> None:
     buttons = ButtonMaker()
-    buttons.buildbutton(f"{START_ONE_NAME}", f"{START_ONE_URL}")
-    buttons.buildbutton(f"{START_TWO_NAME}", f"{START_TWO_URL}")
+    buttons.buildbutton("O W N E R", "https://t.me/include_i0stream")
+    buttons.buildbutton("CHANNEL", "https://t.me/arkmirror")
     reply_markup = InlineKeyboardMarkup(buttons.build_menu(2))
     if CustomFilters.authorized_user(update) or CustomFilters.authorized_chat(update):
         start_string = f'''
