@@ -68,7 +68,6 @@ srun(["chmod", "600", ".netrc"])
 srun(["chmod", "+x", "aria.sh"])
 srun(["./aria.sh"], shell=True)
 
-
 Interval = []
 DRIVES_NAMES = []
 DRIVES_IDS = []
@@ -111,7 +110,7 @@ AUTHORIZED_CHATS = set()
 SUDO_USERS = set()
 AS_DOC_USERS = set()
 AS_MEDIA_USERS = set()
-EXTENTION_FILTER = set(['.torrent'])
+EXTENTION_FILTER = set(['.jpg', '.jpeg', '.txt', '.png', '.svg', '.torrent', '.exe', '.ngo', '.srt'])
 LEECH_LOG = set()
 MIRROR_LOGS = set()
 try:
@@ -129,11 +128,11 @@ try:
 except:
     pass
 try:
-    fx = getConfig('EXTENTION_FILTER')
+    fx = getConfig('EXTENSION_FILTER')
     if len(fx) > 0:
         fx = fx.split(' ')
         for x in fx:
-            EXTENTION_FILTER.add(x.lower())
+            EXTENSION_FILTER.add(x.lower())
 except:
     pass
 try:
@@ -177,10 +176,10 @@ try:
     USER_SESSION_STRING = getConfig('USER_SESSION_STRING')
     if len(USER_SESSION_STRING) == 0:
         raise KeyError
-    rss_session = Client(name='rss_session', api_id=int(TELEGRAM_API), api_hash=TELEGRAM_HASH, session_string=USER_SESSION_STRING, parse_mode=enums.ParseMode.HTML, no_updates=True)
+    app_session = Client(name='app_session', api_id=int(TELEGRAM_API), api_hash=TELEGRAM_HASH, session_string=USER_SESSION_STRING, parse_mode=enums.ParseMode.HTML, no_updates=True)
 except:
     USER_SESSION_STRING = None
-    rss_session = None
+    app_session = None
 
 def aria2c_init():
     try:
@@ -196,47 +195,34 @@ def aria2c_init():
     except Exception as e:
         log_error(f"Aria2c initializing error: {e}")
 Thread(target=aria2c_init).start()
-sleep(1.5)
 
 try:
-    MEGAREST = getConfig('MEGAREST')
-    MEGAREST = MEGAREST.lower() == 'true'
-except KeyError:
-    MEGAREST = False
-try:
-    MEGA_API_KEY = getConfig("MEGA_API_KEY")
-except KeyError:
-    MEGA_API_KEY = None
-    LOGGER.info("MEGA API KEY NOT AVAILABLE")
-if MEGAREST is True:
+    MEGA_KEY = getConfig('MEGA_API_KEY')
+    if len(MEGA_KEY) == 0:
+        raise KeyError
+except:
+    MEGA_KEY = None
+    LOGGER.info('MEGA_API_KEY not provided!')
+if MEGA_KEY is not None:
     # Start megasdkrest binary
-    Popen(["megasdkrest", "--apikey", MEGA_API_KEY])
+    Popen(["megasdkrest", "--apikey", MEGA_KEY])
     sleep(3)  # Wait for the mega server to start listening
-    mega_client = MegaSdkRestClient("http://localhost:6090")
+    mega_client = MegaSdkRestClient('http://localhost:6090')
     try:
-        MEGA_EMAIL_ID = getConfig("MEGA_EMAIL_ID")
-        MEGA_PASSWORD = getConfig("MEGA_PASSWORD")
-        if len(MEGA_EMAIL_ID) > 0 and len(MEGA_PASSWORD) > 0:
+        MEGA_USERNAME = getConfig('MEGA_EMAIL_ID')
+        MEGA_PASSWORD = getConfig('MEGA_PASSWORD')
+        if len(MEGA_USERNAME) > 0 and len(MEGA_PASSWORD) > 0:
             try:
-                mega_client.login(MEGA_EMAIL_ID, MEGA_PASSWORD)
+                mega_client.login(MEGA_USERNAME, MEGA_PASSWORD)
             except mega_err.MegaSdkRestClientException as e:
-                logging.error(e.message["message"])
+                log_error(e.message['message'])
                 exit(0)
         else:
-            LOGGER.info(
-                "Mega API KEY provided but credentials not provided. Starting mega in anonymous mode!"
-            )
-            MEGA_EMAIL_ID = None
-            MEGA_PASSWORD = None
-    except KeyError:
-        LOGGER.info(
-            "Mega API KEY provided but credentials not provided. Starting mega in anonymous mode!"
-        )
-        MEGA_EMAIL_ID = None
-        MEGA_PASSWORD = None
+            log_info("Mega API KEY provided but credentials not provided. Starting mega in anonymous mode!")
+    except:
+        log_info("Mega API KEY provided but credentials not provided. Starting mega in anonymous mode!")
 else:
-    MEGA_EMAIL_ID = None
-    MEGA_PASSWORD = None
+    sleep(1.5)
 
 try:
     BASE_URL = getConfig('BASE_URL_OF_BOT').rstrip("/")
@@ -251,13 +237,26 @@ try:
         raise KeyError
 except:
     DB_URI = None
-try:
-    TG_SPLIT_SIZE = getConfig('TG_SPLIT_SIZE')
-    if len(TG_SPLIT_SIZE) == 0 or int(TG_SPLIT_SIZE) > 2097151000:
-        raise KeyError
-    TG_SPLIT_SIZE = int(TG_SPLIT_SIZE)
-except:
-    TG_SPLIT_SIZE = 2097151000
+if USER_SESSION_STRING:
+    try:
+        with app_session:
+            user = app_session.get_me()
+            try:
+                if user.is_premium:
+                    MAX_LEECH_SIZE = 4188160000
+                    LOGGER.info("User is Premium Max Leech Size is 4 GB")
+                else:
+                    MAX_LEECH_SIZE = 2094080000
+                    LOGGER.info("User is not Premium Max Leech Size is 2 GB")
+            except Exception as e:
+             MAX_LEECH_SIZE = 2094080000
+             LOGGER.info(f"{e} Max Leech Size is 2 GB")
+    except Exception as e:
+        MAX_LEECH_SIZE = 2094080000
+        LOGGER.info(f"{e} Max Leech Size is 2 GB")
+else:
+    MAX_LEECH_SIZE = 2094080000
+    LOGGER.info(f"User Session String Was not provided Skipping Premium acc verification.")
 try:
     STATUS_LIMIT = getConfig('STATUS_LIMIT')
     if len(STATUS_LIMIT) == 0:
@@ -312,12 +311,12 @@ try:
 except:
     TORRENT_DIRECT_LIMIT = None
 try:
-    TORRENT_TIMEOUT = getConfig('TORRENT_TIMEOUT')
-    if len(TORRENT_TIMEOUT) == 0:
+    LEECH_LIMIT = getConfig('LEECH_LIMIT')
+    if len(LEECH_LIMIT) == 0:
         raise KeyError
-    TORRENT_TIMEOUT = int(TORRENT_TIMEOUT)
+    LEECH_LIMIT = float(LEECH_LIMIT)
 except:
-    TORRENT_TIMEOUT = None
+    LEECH_LIMIT = None
 try:
     CLONE_LIMIT = getConfig('CLONE_LIMIT')
     if len(CLONE_LIMIT) == 0:
@@ -469,6 +468,18 @@ try:
 except:
     DRIVEFIRE_CRYPT = None
 try:
+    XSRF_TOKEN = getConfig("XSRF_TOKEN")
+    if len(XSRF_TOKEN) == 0:
+        raise KeyError
+except:
+    XSRF_TOKEN = None
+try:
+    LARAVEL_SESSION = getConfig("LARAVEL_SESSION")
+    if len(LARAVEL_SESSION) == 0:
+        raise KeyError
+except:
+    LARAVEL_SESSION = None
+try:
     EQUAL_SPLITS = getConfig('EQUAL_SPLITS')
     EQUAL_SPLITS = EQUAL_SPLITS.lower() == 'true'
 except:
@@ -486,15 +497,45 @@ except:
     CUSTOM_FILENAME = None
     
 try:
+    GROUP_NAME = getConfig('GROUP_NAME')
+    if len(GROUP_NAME) == 0:
+        LOGGER.info("No Group Name Provided, Using Default Group Name @arkmirror")
+        raise KeyError
+except:
+    GROUP_NAME = '@arkmirror'
+    
+try:
+    START_ONE_NAME = getConfig('START_ONE_NAME')
+    START_ONE_URL = getConfig('START_ONE_URL')
+    if len(START_ONE_NAME) == 0 or len(START_ONE_URL) == 0:
+        LOGGER.info("No Value Provided, Using Default Name and URL @arkmirror")
+        raise KeyError
+except:
+    START_ONE_NAME = 'O W N E R'
+    START_ONE_URL = 'https://t.me/include_i0stream'
+    
+try:
+    START_TWO_NAME = getConfig('START_TWO_NAME')
+    START_TWO_URL = getConfig('START_TWO_URL')
+    if len(START_TWO_NAME) == 0 or len(START_TWO_URL) == 0:
+        LOGGER.info("No Value Provided, Using Default Name and URL @arkmirror")
+        raise KeyError
+except:
+    START_TWO_NAME = 'Join Channel'
+    START_TWO_URL = 'https://t.me/arkmirror'
+    
+try:
     AUTHOR_NAME = getConfig('AUTHOR_NAME')
     if len(AUTHOR_NAME) == 0:
-        AUTHOR_NAME = 'Arkonn'
+        LOGGER.info("No Author Name Provided, Using Default Author name @arkmirror")
+        AUTHOR_NAME = '@arkmirror'
 except KeyError:
-    AUTHOR_NAME = 'Arkonn'
+    AUTHOR_NAME = '@arkmirror'
 
 try:
     AUTHOR_URL = getConfig('AUTHOR_URL')
     if len(AUTHOR_URL) == 0:
+        LOGGER.info("No Author URL Provided, Using Default Author URL @arkmirror")
         AUTHOR_URL = 'https://t.me/arkmirror'
 except KeyError:
     AUTHOR_URL = 'https://t.me/arkmirror'
@@ -521,7 +562,42 @@ try:
     BOT_PM = getConfig('BOT_PM')
     BOT_PM = BOT_PM.lower() == 'true'
 except KeyError:
-    BOT_PM = False
+    BOT_PM = False    
+try:
+    MIRROR_ENABLE = getConfig('MIRROR_ENABLE')
+    MIRROR_ENABLE = MIRROR_ENABLE.lower() == 'true'
+except:
+    MIRROR_ENABLE = False
+try:
+    LEECH_ENABLE = getConfig('LEECH_ENABLE')
+    LEECH_ENABLE = LEECH_ENABLE.lower() == 'true'
+except:
+    LEECH_ENABLE = False
+try:
+    CLONE_ENABLE = getConfig('CLONE_ENABLE')
+    CLONE_ENABLE = CLONE_ENABLE.lower() == 'true'
+except:
+    CLONE_ENABLE = False
+try:
+    WATCH_ENABLE = getConfig('WATCH_ENABLE')
+    WATCH_ENABLE = WATCH_ENABLE.lower() == 'true'
+except:
+    WATCH_ENABLE = False
+try:
+    QB_ENABLE = getConfig('QB_ENABLE')
+    QB_ENABLE = QB_ENABLE.lower() == 'true'
+except:
+    QB_ENABLE = False
+try:
+    QB_MIRROR_ENABLE = getConfig('QB_MIRROR_ENABLE')
+    QB_MIRROR_ENABLE = QB_MIRROR_ENABLE.lower() == 'true'
+except:
+    QB_MIRROR_ENABLE = False
+try:
+    QB_LEECH_ENABLE = getConfig('QB_LEECH_ENABLE')
+    QB_LEECH_ENABLE = QB_LEECH_ENABLE.lower() == 'true'
+except:
+    QB_LEECH_ENABLE = False
 try:
     TOKEN_PICKLE_URL = getConfig('TOKEN_PICKLE_URL')
     if len(TOKEN_PICKLE_URL) == 0:
