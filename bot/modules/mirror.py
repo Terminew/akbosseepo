@@ -15,7 +15,7 @@ from bot import bot, Interval, INDEX_URL, BUTTON_FOUR_NAME, BUTTON_FOUR_URL, BUT
                 BUTTON_SIX_NAME, BUTTON_SIX_URL, VIEW_LINK, aria2, QB_SEED, dispatcher, DOWNLOAD_DIR, \
                 download_dict, download_dict_lock, MAX_LEECH_SIZE, LOGGER, DB_URI, INCOMPLETE_TASK_NOTIFIER, \
                 MEGA_KEY, SOURCE_LINK, BOT_PM, LEECH_LOG, MIRROR_LOGS, AUTO_DELETE_UPLOAD_MESSAGE_DURATION, \
-                LEECH_ENABLE, MIRROR_ENABLE, QB_ENABLE, QB_MIRROR_ENABLE, QB_LEECH_ENABLE
+                LEECH_ENABLE, MIRROR_ENABLE, QB_MIRROR_ENABLE, QB_LEECH_ENABLE
 from bot.helper.ext_utils.bot_utils import is_url, is_magnet, is_gdtot_link, is_mega_link, is_gdrive_link, get_content_type, get_readable_time
 from bot.helper.ext_utils.fs_utils import get_base_name, get_path_size, split_file, clean_download
 from bot.helper.ext_utils.shortenurl import short_url
