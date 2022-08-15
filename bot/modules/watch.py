@@ -3,7 +3,6 @@ from telegram.ext import CommandHandler, CallbackQueryHandler
 from telegram import InlineKeyboardMarkup
 from time import sleep
 from re import split as re_split
-
 from bot import DOWNLOAD_DIR, dispatcher
 from bot.helper.telegram_helper.message_utils import sendMessage, sendMarkup, editMessage
 from bot.helper.telegram_helper import button_build
@@ -54,8 +53,8 @@ def _watch(bot, message, isZip=False, isLeech=False, multi=0):
         tag = f"@{message.from_user.username}"
     else:
         tag = message.from_user.mention_html(message.from_user.first_name)
-
     reply_to = message.reply_to_message
+    
     if reply_to is not None:
         if len(link) == 0:
             link = reply_to.text.strip()
@@ -151,12 +150,12 @@ def _watch(bot, message, isZip=False, isLeech=False, multi=0):
 
     Thread(target=_auto_cancel, args=(bmsg, msg_id)).start()
     if multi > 1:
-        sleep(4)
+        sleep(5)
         nextmsg = type('nextmsg', (object, ), {'chat_id': message.chat_id, 'message_id': message.reply_to_message.message_id + 1})
         nextmsg = sendMessage(mssg.split(' ')[0], bot, nextmsg)
         nextmsg.from_user.id = message.from_user.id
         multi -= 1
-        sleep(4)
+        sleep(5)
         Thread(target=_watch, args=(bot, nextmsg, isZip, isLeech, multi)).start()
 
 def _qual_subbuttons(task_id, qual, msg):
@@ -186,7 +185,7 @@ def _qual_subbuttons(task_id, qual, msg):
         buttons.sbutton(str(buttonName), f"qu {task_id} {video_format}")
     buttons.sbutton("Back", f"qu {task_id} back")
     buttons.sbutton("Cancel", f"qu {task_id} cancel")
-    SUBBUTTONS = InlineKeyboardMarkup(buttons.build_menu(2))
+    SUBBUTTONS = InlineKeyboardMarkup(buttons.build_menu(3))
     editMessage(f"Choose Video Bitrate for <b>{qual}</b>:", msg, SUBBUTTONS)
 
 def _audio_subbuttons(task_id, msg, playlist=False):
@@ -202,7 +201,7 @@ def _audio_subbuttons(task_id, msg, playlist=False):
         buttons.sbutton(f"{q}K-mp3", f"qu {task_id} {audio_format}")
     buttons.sbutton("Back", f"qu {task_id} back")
     buttons.sbutton("Cancel", f"qu {task_id} cancel")
-    SUBBUTTONS = InlineKeyboardMarkup(buttons.build_menu(2))
+    SUBBUTTONS = InlineKeyboardMarkup(buttons.build_menu(3))
     editMessage(f"Choose Audio{i} Bitrate:", msg, SUBBUTTONS)
 
 def select_format(update, context):
@@ -258,7 +257,7 @@ def select_format(update, context):
     del listener_dict[task_id]
 
 def _auto_cancel(msg, msg_id):
-    sleep(120)
+    sleep(30)
     try:
         del listener_dict[msg_id]
         editMessage('Timed out! Task has been cancelled.', msg)
@@ -277,10 +276,16 @@ def leechWatch(update, context):
 def leechWatchZip(update, context):
     _watch(context.bot, update.message, True, True)
 
-watch_handler = CommandHandler(BotCommands.WatchCommand, watch, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-zip_watch_handler = CommandHandler(BotCommands.ZipWatchCommand, watchZip, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-leech_watch_handler = CommandHandler(BotCommands.LeechWatchCommand, leechWatch, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-leech_zip_watch_handler = CommandHandler(BotCommands.LeechZipWatchCommand, leechWatchZip, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+if WATCH_ENABLE:
+    watch_handler = CommandHandler(BotCommands.WatchCommand, watch, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+    zip_watch_handler = CommandHandler(BotCommands.ZipWatchCommand, watchZip, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+    leech_watch_handler = CommandHandler(BotCommands.LeechWatchCommand, leechWatch, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+    leech_zip_watch_handler = CommandHandler(BotCommands.LeechZipWatchCommand, leechWatchZip, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+else:
+    watch_handler = CommandHandler(BotCommands.WatchCommand, watch, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+    zip_watch_handler = CommandHandler(BotCommands.ZipWatchCommand, watchZip, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+    leech_watch_handler = CommandHandler(BotCommands.LeechWatchCommand, leechWatch, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+    leech_zip_watch_handler = CommandHandler(BotCommands.LeechZipWatchCommand, leechWatchZip, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
 quality_handler = CallbackQueryHandler(select_format, pattern="qu", run_async=True)
 
 dispatcher.add_handler(watch_handler)
