@@ -13,8 +13,9 @@ from telegram.ext import CommandHandler
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, ParseMode
 from bot import bot, Interval, INDEX_URL, BUTTON_FOUR_NAME, BUTTON_FOUR_URL, BUTTON_FIVE_NAME, BUTTON_FIVE_URL, \
                 BUTTON_SIX_NAME, BUTTON_SIX_URL, VIEW_LINK, aria2, QB_SEED, dispatcher, DOWNLOAD_DIR, \
-                download_dict, download_dict_lock, TG_SPLIT_SIZE, LOGGER, DB_URI, INCOMPLETE_TASK_NOTIFIER, \
-                MEGA_API_KEY, SOURCE_LINK, BOT_PM, LEECH_LOG, MIRROR_LOGS, AUTO_DELETE_UPLOAD_MESSAGE_DURATION
+                download_dict, download_dict_lock, MAX_LEECH_SIZE, LOGGER, DB_URI, INCOMPLETE_TASK_NOTIFIER, \
+                MEGA_KEY, SOURCE_LINK, BOT_PM, LEECH_LOG, MIRROR_LOGS, AUTO_DELETE_UPLOAD_MESSAGE_DURATION, \
+                LEECH_ENABLE, MIRROR_ENABLE, QB_ENABLE, QB_MIRROR_ENABLE, QB_LEECH_ENABLE
 from bot.helper.ext_utils.bot_utils import is_url, is_magnet, is_gdtot_link, is_mega_link, is_gdrive_link, get_content_type, get_readable_time
 from bot.helper.ext_utils.fs_utils import get_base_name, get_path_size, split_file, clean_download
 from bot.helper.ext_utils.shortenurl import short_url
@@ -22,7 +23,7 @@ from bot.helper.ext_utils.exceptions import DirectDownloadLinkException, NotSupp
 from bot.helper.mirror_utils.download_utils.aria2_download import add_aria2c_download
 from bot.helper.mirror_utils.download_utils.gd_downloader import add_gd_download
 from bot.helper.mirror_utils.download_utils.qbit_downloader import QbDownloader
-from bot.helper.mirror_utils.download_utils.mega_downloader import add_mega_download
+from bot.helper.mirror_utils.download_utils.mega_downloader import MegaDownloader
 from bot.helper.mirror_utils.download_utils.direct_link_generator import direct_link_generator
 from bot.helper.mirror_utils.download_utils.telegram_downloader import TelegramDownloadHelper
 from bot.helper.mirror_utils.status_utils.extract_status import ExtractStatus
@@ -81,16 +82,16 @@ class MirrorListener:
         if self.isZip:
             try:
                 with download_dict_lock:
-                    download_dict[self.uid] = ZipStatus(name, m_path, size)
+                    download_dict[self.uid] = ZipStatus(name, size, gid, self, self.message)
                 path = m_path + ".zip"
                 LOGGER.info(f'Zip: orig_path: {m_path}, zip_path: {path}')
                 if self.pswd is not None:
-                    if self.isLeech and int(size) > TG_SPLIT_SIZE:
-                        srun(["7z", f"-v{TG_SPLIT_SIZE}b", "a", "-mx=0", f"-p{self.pswd}", path, m_path])
+                    if self.isLeech and int(size) > MAX_LEECH_SIZE:
+                        srun(["7z", f"-v{MAX_LEECH_SIZE}b", "a", "-mx=0", f"-p{self.pswd}", path, m_path])
                     else:
                         srun(["7z", "a", "-mx=0", f"-p{self.pswd}", path, m_path])
-                elif self.isLeech and int(size) > TG_SPLIT_SIZE:
-                    srun(["7z", f"-v{TG_SPLIT_SIZE}b", "a", "-mx=0", path, m_path])
+                elif self.isLeech and int(size) > MAX_LEECH_SIZE:
+                    srun(["7z", f"-v{MAX_LEECH_SIZE}b", "a", "-mx=0", path, m_path])
                 else:
                     srun(["7z", "a", "-mx=0", path, m_path])
             except FileNotFoundError:
@@ -108,7 +109,7 @@ class MirrorListener:
                     path = get_base_name(m_path)
                 LOGGER.info(f"Extracting: {name}")
                 with download_dict_lock:
-                    download_dict[self.uid] = ExtractStatus(name, m_path, size)
+                    download_dict[self.uid] = ExtractStatus(name, size, gid, self, self.message)
                 if ospath.isdir(m_path):
                     for dirpath, subdir, files in walk(m_path, topdown=False):
                         for file_ in files:
@@ -150,14 +151,16 @@ class MirrorListener:
                 for file_ in files:
                     f_path = ospath.join(dirpath, file_)
                     f_size = ospath.getsize(f_path)
-                    if int(f_size) > TG_SPLIT_SIZE:
+                    if int(f_size) > MAX_LEECH_SIZE:
                         if not checked:
                             checked = True
                             with download_dict_lock:
-                                download_dict[self.uid] = SplitStatus(up_name, up_path, size)
+                                download_dict[self.uid] = SplitStatus(up_name, size, gid, self, self.message)
                             LOGGER.info(f"Splitting: {up_name}")
-                        split_file(f_path, f_size, file_, dirpath, TG_SPLIT_SIZE)
-                        osremove(f_path)
+                        if res := split_file(f_path, f_size, file_, dirpath, MAX_LEECH_SIZE, self):
+                            osremove(f_path)
+                        else:
+                            return
         if self.isLeech:
             size = get_path_size(f'{DOWNLOAD_DIR}{self.uid}')
             LOGGER.info(f"Leech Name: {up_name}")
@@ -178,14 +181,7 @@ class MirrorListener:
             drive.upload(up_name)
 
     def onDownloadError(self, error):
-        reply_to = self.message.reply_to_message
         error = error.replace('<', ' ').replace('>', ' ')
-        if reply_to is not None:
-            try:
-                reply_to.delete()
-            except Exception as error:
-                LOGGER.warning(error)
-                pass
         clean_download(f'{DOWNLOAD_DIR}{self.uid}')
         with download_dict_lock:
             try:
@@ -310,7 +306,7 @@ class MirrorListener:
                     mesg = message_args[1]
                     if is_magnet(mesg):
                         link = telegraph.create_page(title='Ark Mirror Source Link',content=mesg,)["path"]
-                        buttons.buildbutton(f"Source Link", f"https://telegra.ph/{link}")
+                        buttons.buildbutton(f"Source Link", f"https://graph.org/{link}")
                     elif is_url(mesg):
                         source_link = mesg
                         if source_link.startswith(("|", "pswd: ")):
@@ -329,7 +325,7 @@ class MirrorListener:
                         source_link = reply_text.strip()
                         if is_magnet(source_link):
                             link = telegraph.create_page(title='Ark Mirror Source Link',content=source_link,)["path"]
-                            buttons.buildbutton(f"Source Link", f"https://telegra.ph/{link}")
+                            buttons.buildbutton(f"Source Link", f"https://graph.org/{link}")
                         else:
                             buttons.buildbutton(f"Source Link", source_link)
                 except Exception as e:
@@ -402,7 +398,7 @@ def _mirror(bot, message, isZip=False, extract=False, isQbit=False, isLeech=Fals
         try:
             text = "Error: Leech Functionality will not work\nReason: Your Leech Log var is empty.\n\nRead the README file it's there for a reason."
             msg = sendMessage(text, bot, message)
-            LOGGER.error("Leech Log var is Empty\nKindly add Chat id in Leech log to use Leech Functionality\nRead the README file it's there for a reason\n")
+            LOGGER.error("Leech Log var is Empty\n")
             Thread(target=auto_delete_message, args=(bot, message, msg)).start()
             return
         except Exception as err:
@@ -424,6 +420,10 @@ def _mirror(bot, message, isZip=False, extract=False, isQbit=False, isLeech=Fals
             message = sendMarkup(startwarn, bot, message, InlineKeyboardMarkup(buttons.build_menu(2)))
             Thread(target=auto_delete_message, args=(bot, message, message)).start()
             return
+    if message.chat.type == 'private' and len(LEECH_LOG) == 0 and isLeech and MAX_LEECH_SIZE == 4194304000:
+        text = f"Leech Log is Empty you Can't use bot in PM,\nYou Can use <i>/{BotCommands.AddleechlogCommand} chat_id </i> to add leech log."
+        sendMessage(text, bot, message)
+        return
     mesg = message.text.split('\n')
     message_args = mesg[0].split(' ', maxsplit=1)
     name_args = mesg[0].split('|', maxsplit=1)
@@ -632,18 +632,48 @@ def qb_unzip_leech(update, context):
 def qb_zip_leech(update, context):
     _mirror(context.bot, update.message, True, isQbit=True, isLeech=True)
 
-mirror_handler = CommandHandler(BotCommands.MirrorCommand, mirror,filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-unzip_mirror_handler = CommandHandler(BotCommands.UnzipMirrorCommand, unzip_mirror,filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-zip_mirror_handler = CommandHandler(BotCommands.ZipMirrorCommand, zip_mirror,filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-qb_mirror_handler = CommandHandler(BotCommands.QbMirrorCommand, qb_mirror,filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-qb_unzip_mirror_handler = CommandHandler(BotCommands.QbUnzipMirrorCommand, qb_unzip_mirror,filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-qb_zip_mirror_handler = CommandHandler(BotCommands.QbZipMirrorCommand, qb_zip_mirror,filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-leech_handler = CommandHandler(BotCommands.LeechCommand, leech,filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-unzip_leech_handler = CommandHandler(BotCommands.UnzipLeechCommand, unzip_leech,filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-zip_leech_handler = CommandHandler(BotCommands.ZipLeechCommand, zip_leech,filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-qb_leech_handler = CommandHandler(BotCommands.QbLeechCommand, qb_leech,filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-qb_unzip_leech_handler = CommandHandler(BotCommands.QbUnzipLeechCommand, qb_unzip_leech,filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
-qb_zip_leech_handler = CommandHandler(BotCommands.QbZipLeechCommand, qb_zip_leech,filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+if MIRROR_ENABLE:
+    mirror_handler = CommandHandler(BotCommands.MirrorCommand, mirror, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+    unzip_mirror_handler = CommandHandler(BotCommands.UnzipMirrorCommand, unzip_mirror, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+    zip_mirror_handler = CommandHandler(BotCommands.ZipMirrorCommand, zip_mirror, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+else:
+    mirror_handler = CommandHandler(BotCommands.MirrorCommand, mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+    unzip_mirror_handler = CommandHandler(BotCommands.UnzipMirrorCommand, unzip_mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+    zip_mirror_handler = CommandHandler(BotCommands.ZipMirrorCommand, zip_mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+
+if QB_ENABLE:
+    if QB_MIRROR_ENABLE:
+        qb_mirror_handler = CommandHandler(BotCommands.QbMirrorCommand, qb_mirror, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+        qb_unzip_mirror_handler = CommandHandler(BotCommands.QbUnzipMirrorCommand, qb_unzip_mirror, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+        qb_zip_mirror_handler = CommandHandler(BotCommands.QbZipMirrorCommand, qb_zip_mirror, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+    else:
+        qb_mirror_handler = CommandHandler(BotCommands.QbMirrorCommand, qb_mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+        qb_unzip_mirror_handler = CommandHandler(BotCommands.QbUnzipMirrorCommand, qb_unzip_mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+        qb_zip_mirror_handler = CommandHandler(BotCommands.QbZipMirrorCommand, qb_zip_mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+    if QB_LEECH_ENABLE:
+        qb_leech_handler = CommandHandler(BotCommands.QbLeechCommand, qb_leech, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+        qb_unzip_leech_handler = CommandHandler(BotCommands.QbUnzipLeechCommand, qb_unzip_leech, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+        qb_zip_leech_handler = CommandHandler(BotCommands.QbZipLeechCommand, qb_zip_leech, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+    else:
+        qb_leech_handler = CommandHandler(BotCommands.QbLeechCommand, qb_leech, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+        qb_unzip_leech_handler = CommandHandler(BotCommands.QbUnzipLeechCommand, qb_unzip_leech, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+        qb_zip_leech_handler = CommandHandler(BotCommands.QbZipLeechCommand, qb_zip_leech, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+else:
+    qb_mirror_handler = CommandHandler(BotCommands.QbMirrorCommand, qb_mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+    qb_unzip_mirror_handler = CommandHandler(BotCommands.QbUnzipMirrorCommand, qb_unzip_mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+    qb_zip_mirror_handler = CommandHandler(BotCommands.QbZipMirrorCommand, qb_zip_mirror, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+    qb_leech_handler = CommandHandler(BotCommands.QbLeechCommand, qb_leech, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+    qb_unzip_leech_handler = CommandHandler(BotCommands.QbUnzipLeechCommand, qb_unzip_leech, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+    qb_zip_leech_handler = CommandHandler(BotCommands.QbZipLeechCommand, qb_zip_leech, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+    
+if LEECH_ENABLE:
+    leech_handler = CommandHandler(BotCommands.LeechCommand, leech, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+    unzip_leech_handler = CommandHandler(BotCommands.UnzipLeechCommand, unzip_leech, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+    zip_leech_handler = CommandHandler(BotCommands.ZipLeechCommand, zip_leech, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+else:
+    leech_handler = CommandHandler(BotCommands.LeechCommand, leech, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+    unzip_leech_handler = CommandHandler(BotCommands.UnzipLeechCommand, unzip_leech, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
+    zip_leech_handler = CommandHandler(BotCommands.ZipLeechCommand, zip_leech, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
 
 dispatcher.add_handler(mirror_handler)
 dispatcher.add_handler(unzip_mirror_handler)
