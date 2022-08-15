@@ -1,7 +1,6 @@
 from bot.helper.ext_utils.bot_utils import MirrorStatus, EngineStatus, get_readable_file_size, get_readable_time
 from bot import DOWNLOAD_DIR
 
-
 class GdDownloadStatus:
     def __init__(self, obj, size, listener, gid):
         self.__obj = obj
