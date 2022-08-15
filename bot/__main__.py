@@ -71,7 +71,7 @@ def stats(update, context):
 
 """
     keyboard = [[InlineKeyboardButton("CLOSE", callback_data="stats_close")]]
-    myStats = sendMarkup(stats, context.bot, update.message, reply_markup=InlineKeyboardMarkup(keyboard))
+    main  = sendMarkup(stats, context.bot, update.message, reply_markup=InlineKeyboardMarkup(keyboard))
     Thread(target=auto_delete_message, args=(context.bot, update.message, main)).start()
 
 def call_back_data(update, context):
