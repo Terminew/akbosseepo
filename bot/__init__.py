@@ -30,6 +30,22 @@ basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 
 LOGGER = getLogger(__name__)
 
+CONFIG_FILE_URL = environ.get('CONFIG_FILE_URL')
+try:
+    if len(CONFIG_FILE_URL) == 0:
+        raise TypeError
+    try:
+        res = rget(CONFIG_FILE_URL)
+        if res.status_code == 200:
+            with open('config.env', 'wb+') as f:
+                f.write(res.content)
+        else:
+            log_error(f"Failed to download config.env {res.status_code}")
+    except Exception as e:
+        log_error(f"CONFIG_FILE_URL: {e}")
+except:
+    pass
+
 load_dotenv('config.env', override=True)
 
 def getConfig(name: str):
@@ -52,21 +68,29 @@ except:
     pass
 
 try:
-    SERVER_PORT = getConfig('SERVER_PORT')
-    if len(SERVER_PORT) == 0:
+    TORRENT_TIMEOUT = getConfig('TORRENT_TIMEOUT')
+    if len(TORRENT_TIMEOUT) == 0:
         raise KeyError
+    TORRENT_TIMEOUT = int(TORRENT_TIMEOUT)
 except:
-    SERVER_PORT = 80
+    TORRENT_TIMEOUT = None
 
-PORT = environ.get('PORT', SERVER_PORT)
+PORT = environ.get('PORT')
 Popen([f"gunicorn web.wserver:app --bind 0.0.0.0:{PORT}"], shell=True)
-srun(["qbittorrent-nox", "-d", "--profile=."])
+srun(["last-api", "-d", "--profile=."])
 if not ospath.exists('.netrc'):
     srun(["touch", ".netrc"])
 srun(["cp", ".netrc", "/root/.netrc"])
 srun(["chmod", "600", ".netrc"])
-srun(["chmod", "+x", "aria.sh"])
-srun(["./aria.sh"], shell=True)
+trackers = check_output(["curl -Ns https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/all.txt https://ngosang.github.io/trackerslist/trackers_all_http.txt https://newtrackon.com/api/all https://raw.githubusercontent.com/hezhijie0327/Trackerslist/main/trackerslist_tracker.txt | awk '$0' | tr '\n\n' ','"], shell=True).decode('utf-8').rstrip(',')
+if TORRENT_TIMEOUT is not None:
+    with open("a2c.conf", "a+") as a:
+        a.write(f"bt-stop-timeout={TORRENT_TIMEOUT}\n")
+with open("a2c.conf", "a+") as a:
+    a.write(f"bt-tracker={trackers}")
+srun(["extra-api", "--conf-path=/usr/src/app/a2c.conf"])
+alive = Popen(["python3", "alive.py"])
+sleep(0.5)
 
 Interval = []
 DRIVES_NAMES = []
@@ -567,32 +591,37 @@ try:
     MIRROR_ENABLE = getConfig('MIRROR_ENABLE')
     MIRROR_ENABLE = MIRROR_ENABLE.lower() == 'true'
 except:
-    MIRROR_ENABLE = True
+    MIRROR_ENABLE = False
 try:
     LEECH_ENABLE = getConfig('LEECH_ENABLE')
     LEECH_ENABLE = LEECH_ENABLE.lower() == 'true'
 except:
-    LEECH_ENABLE = True
+    LEECH_ENABLE = False
 try:
     CLONE_ENABLE = getConfig('CLONE_ENABLE')
     CLONE_ENABLE = CLONE_ENABLE.lower() == 'true'
 except:
-    CLONE_ENABLE = True
+    CLONE_ENABLE = False
 try:
     WATCH_ENABLE = getConfig('WATCH_ENABLE')
     WATCH_ENABLE = WATCH_ENABLE.lower() == 'true'
 except:
-    WATCH_ENABLE = True
+    WATCH_ENABLE = False
+try:
+    QB_ENABLE = getConfig('QB_ENABLE')
+    QB_ENABLE = QB_ENABLE.lower() == 'true'
+except:
+    QB_ENABLE = False
 try:
     QB_MIRROR_ENABLE = getConfig('QB_MIRROR_ENABLE')
     QB_MIRROR_ENABLE = QB_MIRROR_ENABLE.lower() == 'true'
 except:
-    QB_MIRROR_ENABLE = True
+    QB_MIRROR_ENABLE = False
 try:
     QB_LEECH_ENABLE = getConfig('QB_LEECH_ENABLE')
     QB_LEECH_ENABLE = QB_LEECH_ENABLE.lower() == 'true'
 except:
-    QB_LEECH_ENABLE = True
+    QB_LEECH_ENABLE = False
 try:
     TOKEN_PICKLE_URL = getConfig('TOKEN_PICKLE_URL')
     if len(TOKEN_PICKLE_URL) == 0:
