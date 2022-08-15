@@ -1,14 +1,12 @@
 from telegram import InlineKeyboardMarkup
 from telegram.ext import CommandHandler, CallbackQueryHandler
 from time import sleep
-
 from bot import download_dict, dispatcher, download_dict_lock, QB_SEED, SUDO_USERS, OWNER_ID
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.message_utils import sendMessage, sendMarkup
 from bot.helper.ext_utils.bot_utils import getDownloadByGid, MirrorStatus, getAllDownload
 from bot.helper.telegram_helper import button_build
-
 
 def cancel_mirror(update, context):
     args = update.message.text.split(" ", maxsplit=1)
@@ -64,7 +62,7 @@ def cancell_all_buttons(update, context):
         buttons.sbutton("Seeding", "canall seed")
     buttons.sbutton("Cloning", "canall clone")
     buttons.sbutton("All", "canall all")
-    button = InlineKeyboardMarkup(buttons.build_menu(2))
+    button = InlineKeyboardMarkup(buttons.build_menu(3))
     sendMarkup('Choose tasks to cancel.', context.bot, update.message, button)
 
 def cancel_all_update(update, context):
@@ -79,14 +77,8 @@ def cancel_all_update(update, context):
     else:
         query.answer(text="You don't have permission to use these buttons!", show_alert=True)
 
-
-
-cancel_mirror_handler = CommandHandler(BotCommands.CancelMirror, cancel_mirror,
-                                       filters=(CustomFilters.authorized_chat | CustomFilters.authorized_user), run_async=True)
-
-cancel_all_handler = CommandHandler(BotCommands.CancelAllCommand, cancell_all_buttons,
-                                    filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
-
+cancel_mirror_handler = CommandHandler(BotCommands.CancelMirror, cancel_mirror,filters=(CustomFilters.authorized_chat | CustomFilters.authorized_user), run_async=True)
+cancel_all_handler = CommandHandler(BotCommands.CancelAllCommand, cancell_all_buttons,filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
 cancel_all_buttons_handler = CallbackQueryHandler(cancel_all_update, pattern="canall", run_async=True)
 
 dispatcher.add_handler(cancel_all_handler)
