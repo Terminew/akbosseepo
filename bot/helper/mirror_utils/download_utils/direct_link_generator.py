@@ -1,13 +1,3 @@
-# Copyright (C) 2019 The Raphielscape Company LLC.
-#
-# Licensed under the Raphielscape Public License, Version 1.c (the "License");
-# you may not use this file except in compliance with the License.
-#
-""" Helper Module containing various sites direct links generators. This module is copied and modified as per need
-from https://github.com/AvinashReddy3108/PaperplaneExtended . I hereby take no credit of the following code other
-than the modifications. See https://github.com/AvinashReddy3108/PaperplaneExtended/commits/master/userbot/modules/direct_links.py
-for original authorship. """
-
 from requests import get as rget, head as rhead, post as rpost, Session as rsession
 from re import findall as re_findall, sub as re_sub, match as re_match, search as re_search
 import requests
@@ -24,14 +14,13 @@ from bs4 import BeautifulSoup
 from base64 import standard_b64encode
 from lxml import etree
 
-from bot import LOGGER, UPTOBOX_TOKEN,GDTOT_CRYPT, UNIFIED_EMAIL, UNIFIED_PASS, HUBDRIVE_CRYPT, KATDRIVE_CRYPT, DRIVEFIRE_CRYPT
+from bot import LOGGER, UPTOBOX_TOKEN,GDTOT_CRYPT, UNIFIED_EMAIL, UNIFIED_PASS, HUBDRIVE_CRYPT, KATDRIVE_CRYPT, DRIVEFIRE_CRYPT, XSRF_TOKEN, LARAVEL_SESSION
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.ext_utils.bot_utils import *
 from bot.helper.ext_utils.exceptions import *
 
 fmed_list = ['fembed.net', 'fembed.com', 'femax20.com', 'fcdn.stream', 'feurl.com', 'layarkacaxxi.icu',
              'naniplay.nanime.in', 'naniplay.nanime.biz', 'naniplay.com', 'mm9842.com']
-
 
 def direct_link_generator(link: str):
     """ direct links generator """
@@ -83,44 +72,20 @@ def direct_link_generator(link: str):
         raise DirectDownloadLinkException(f'No Direct link function found for {link}')
 
 def zippy_share(url: str) -> str:
-    """ ZippyShare direct link generator
-    Based on https://github.com/KenHV/Mirror-Bot
-             https://github.com/jovanzers/WinTenCermin
+    base_url = re_search('http.+.zippyshare.com', url).group()
+    response = rget(url)
+    pages = BeautifulSoup(response.text, "html.parser")
+    js_script = str(pages.find("div", style="margin-left: 24px; margin-top: 20px; text-align: center; width: 303px; height: 105px;"))
     try:
-        link = re_findall(r'\bhttps?://.*zippyshare\.com\S+', url)[0]
-    except IndexError:
-        raise DirectDownloadLinkException("ERROR: No Zippyshare links found")
-    try:
-        base_url = re.search('http.+.zippyshare.com/', link).group()
-        response = requests.get(link).content
-        pages = BeautifulSoup(response, "lxml")
-        try:
-            js_script = pages.find("div", {"class": "center"})
-            if js_script is not None:
-                js_script = js_script.find_all("script")[1]
-            else:
-                raise DirectDownloadLinkException("ERROR: No Zippyshare links found")
-        except IndexError:
-            js_script = pages.find("div", {"class": "right"})
-            if js_script is not None:
-                js_script = js_script.find_all("script")[0]
-            else:
-                raise DirectDownloadLinkException("ERROR: No Zippyshare links found")
-        js_content = re_findall(r'\.href.=."/(.*?)";', str(js_script))
-        js_content = str(js_content[0]).split('"')
-#        n = str(js_script).split('var n = ')[1].split(';')[0].split('%')
-#        n = int(n[0]) % int(n[1])
-#        b = str(js_script).split('var b = ')[1].split(';')[0].split('%')
-#        b = int(b[0]) % int(b[1])
-#        z = int(str(js_script).split('var z = ')[1].split(';')[0])
-#        math_ = str(n + b + z - 3)
-        math = re_findall("\d+",js_content[1])
-        math_ = int(math[0]) % int(math[1]) + int(math[2]) % int(math[3])
-        return base_url + str(js_content[0]) + str(math_) + str(js_content[2])
-    except IndexError:
-        raise DirectDownloadLinkException("ERROR: Can't find download button")"""
-    return Bypass().bypass_zippyshare(url)
-
+        mtk = eval(re_findall(r"\+\((.*?).\+", js_script)[0] + " + 10 + 5/5")
+        uri1 = re_findall(r".href.=.\"/(.*?)/\"", js_script)[0]
+        uri2 = re_findall(r"\)\+\"/(.*?)\"", js_script)[0]
+    except Exception as err:
+        LOGGER.error(err)
+        raise DirectDownloadLinkException("ERROR: Can't Generate direct link")
+    dl_url = f"{base_url}/{uri1}/{int(mtk)}/{uri2}"
+    return dl_url
+      
 def yandex_disk(url: str) -> str:
     """ Yandex.Disk direct link generator
     Based on https://github.com/wldhx/yadisk-direct """
@@ -136,7 +101,8 @@ def yandex_disk(url: str) -> str:
 
 def uptobox(url: str) -> str:
     """ Uptobox direct link generator
-    based on https://github.com/jovanzers/WinTenCermin """
+    based on https://github.com/jovanzers/WinTenCermin 
+         and https://github.com/sinoobie/noobie-mirror """
     try:
         link = re_findall(r'\bhttps?://.*uptobox\.com\S+', url)[0]
     except IndexError:
@@ -150,10 +116,25 @@ def uptobox(url: str) -> str:
             dl_url = link
         except:
             file_id = re_findall(r'\bhttps?://.*uptobox\.com/(\w+)', url)[0]
-            file_link = 'https://uptobox.com/api/link?token=%s&file_code=%s' % (UPTOBOX_TOKEN, file_id)
-            req = requests.get(file_link)
+            file_link = f'https://uptobox.com/api/link?token={UPTOBOX_TOKEN}&file_code={file_id}'
+            
+            req = rget(file_link)
             result = req.json()
-            dl_url = result['data']['dlLink']
+            if result['message'].lower() == 'success':
+                dl_url = result['data']['dlLink']
+            elif result['message'].lower() == 'waiting needed':
+                waiting_time = result["data"]["waiting"] + 1
+                waiting_token = result["data"]["waitingToken"]
+                sleep(waiting_time)
+                req2 = rget(f"{file_link}&waitingToken={waiting_token}")
+                result2 = req2.json()
+                dl_url = result2['data']['dlLink']
+            elif result['message'].lower() == 'You need to wait before requesting a new download link!':
+                cooldown = divmod(result['data']['waiting'], 60)
+                raise DirectDownloadLinkException(f"ERROR: Uptobox is being limited please wait {cooldown[0]} min {cooldown[1]} sec.")
+            else:
+                LOGGER.info(f"UPTOBOX_ERROR: {result}")
+                raise DirectDownloadLinkException(f"ERROR: {result['message']}")
     return dl_url
 
 def mediafire(url: str) -> str:
@@ -162,10 +143,10 @@ def mediafire(url: str) -> str:
         link = re_findall(r'\bhttps?://.*mediafire\.com\S+', url)[0]
     except IndexError:
         raise DirectDownloadLinkException("No MediaFire links found\n")
-    page = BeautifulSoup(requests.get(link).content, 'lxml')
+    page = BeautifulSoup(rget(link).content, 'lxml')
     info = page.find('a', {'aria-label': 'Download file'})
     return info.get('href')
-
+  
 def osdn(url: str) -> str:
     """ OSDN direct link generator """
     osdn_link = 'https://osdn.net'
@@ -475,7 +456,6 @@ def unified(url: str) -> str:
     })
 
     account_login(client, url, account['email'], account['passwd'])
-
     res = client.get(url)
     try:
         key = re_findall('"key",\s+"(.*?)"', res.text)[0]
@@ -487,15 +467,10 @@ def unified(url: str) -> str:
     info_parsed['error'] = False
     info_parsed['link_type'] = 'login' # direct/login
     
-    headers = {
-        "Content-Type": f"multipart/form-data; boundary={'-'*4}_",
-    }
-    
-    data = {
-        'type': 1,
-        'key': key,
-        'action': 'original'
-    }
+    headers = {"Content-Type": f"multipart/form-data; boundary={'-'*4}_",}
+    data = {'type': 1,
+            'key': key,
+            'action': 'original'}
     
     if len(ddl_btn):
         info_parsed['link_type'] = 'direct'
@@ -519,7 +494,7 @@ def unified(url: str) -> str:
     if info_parsed['error']:
         raise DirectDownloadLinkException(f"ERROR! {info_parsed['error_message']}")
     
-    if urlparse(url).netloc == 'appdrive.in':
+    if urlparse(url).netloc == 'appdrive.in' or 'appdrive.info':
         flink = info_parsed['gdrive_link']
         return flink
       
@@ -527,7 +502,7 @@ def unified(url: str) -> str:
         flink = info_parsed['gdrive_link']
         return flink
     
-    elif urlparse(url).netloc == 'driveapp.in':
+    elif urlparse(url).netloc == 'driveapp.in' or 'driveapp.info':
         res = client.get(info_parsed['gdrive_link'])
         drive_link = etree.HTML(res.content).xpath("//a[contains(@class,'btn')]/@href")[0]
         flink = drive_link
@@ -561,7 +536,6 @@ def udrive(url: str) -> str:
         client = rsession()
     else:
         client = cloudscraper.create_scraper(delay=10, browser='chrome')
-    
     if 'hubdrive' in url:
         client.cookies.update({'crypt': HUBDRIVE_CRYPT})
     if 'drivehub' in url:
@@ -581,14 +555,9 @@ def udrive(url: str) -> str:
     
     up = urlparse(url)
     req_url = f"{up.scheme}://{up.netloc}/ajax.php?ajax=download"
-    
     file_id = url.split('/')[-1]
-    
     data = { 'id': file_id }
-    
-    headers = {
-        'x-requested-with': 'XMLHttpRequest'
-    }
+    headers = {'x-requested-with': 'XMLHttpRequest'}
     
     try:
         res = client.post(req_url, headers=headers, data=data).json()['file']
@@ -614,57 +583,46 @@ def udrive(url: str) -> str:
         
     info_parsed['gdrive_url'] = f"https://drive.google.com/open?id={gd_id}"
     info_parsed['src_url'] = url
-    
     flink = info_parsed['gdrive_url']
     return flink  
 
 def sharer_pw(url, forced_login=False):
-    client = cloudscraper.create_scraper(delay=10, browser='chrome')
-    
+    client = cloudscraper.create_scraper(allow_brotli=False)
     client.cookies.update({
         "XSRF-TOKEN": XSRF_TOKEN,
-        "laravel_session": laravel_session
+        "laravel_session": LARAVEL_SESSION
     })
-    
     res = client.get(url)
-    soup = BeautifulSoup(res.text, "lxml")
-    token = re_findall("token\s=\s'(.*?)'", res, re.DOTALL)[0]
-    
+    token = re.findall("_token\s=\s'(.*?)'", res.text, re.DOTALL)[0]
     ddl_btn = etree.HTML(res.content).xpath("//button[@id='btndirect']")
-    
-    info_parsed = parse_info(res, url)
+    info_parsed = parse_info(res)
     info_parsed['error'] = True
     info_parsed['src_url'] = url
-    info_parsed['link_type'] = 'login' # direct/login
+    info_parsed['link_type'] = 'login'
     info_parsed['forced_login'] = forced_login
-    
     headers = {
         'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
         'x-requested-with': 'XMLHttpRequest'
     }
-    
     data = {
         '_token': token
     }
-    
     if len(ddl_btn):
         info_parsed['link_type'] = 'direct'
     if not forced_login:
         data['nl'] = 1
-    
     try: 
         res = client.post(url+'/dl', headers=headers, data=data).json()
     except:
         return info_parsed
-    
     if 'url' in res and res['url']:
         info_parsed['error'] = False
         info_parsed['gdrive_link'] = res['url']
         
     if len(ddl_btn) and not forced_login and not 'url' in info_parsed:
         # retry download via login
-        return sharer_pw(url, forced_login=True)
-    
+        return sharer_pw_dl(url, forced_login=True)
+    return info_parsed
     try:
         flink = info_parsed['gdrive_link']
         return flink
