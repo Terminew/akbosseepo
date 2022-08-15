@@ -567,37 +567,32 @@ try:
     MIRROR_ENABLE = getConfig('MIRROR_ENABLE')
     MIRROR_ENABLE = MIRROR_ENABLE.lower() == 'true'
 except:
-    MIRROR_ENABLE = False
+    MIRROR_ENABLE = True
 try:
     LEECH_ENABLE = getConfig('LEECH_ENABLE')
     LEECH_ENABLE = LEECH_ENABLE.lower() == 'true'
 except:
-    LEECH_ENABLE = False
+    LEECH_ENABLE = True
 try:
     CLONE_ENABLE = getConfig('CLONE_ENABLE')
     CLONE_ENABLE = CLONE_ENABLE.lower() == 'true'
 except:
-    CLONE_ENABLE = False
+    CLONE_ENABLE = True
 try:
     WATCH_ENABLE = getConfig('WATCH_ENABLE')
     WATCH_ENABLE = WATCH_ENABLE.lower() == 'true'
 except:
-    WATCH_ENABLE = False
-try:
-    QB_ENABLE = getConfig('QB_ENABLE')
-    QB_ENABLE = QB_ENABLE.lower() == 'true'
-except:
-    QB_ENABLE = False
+    WATCH_ENABLE = True
 try:
     QB_MIRROR_ENABLE = getConfig('QB_MIRROR_ENABLE')
     QB_MIRROR_ENABLE = QB_MIRROR_ENABLE.lower() == 'true'
 except:
-    QB_MIRROR_ENABLE = False
+    QB_MIRROR_ENABLE = True
 try:
     QB_LEECH_ENABLE = getConfig('QB_LEECH_ENABLE')
     QB_LEECH_ENABLE = QB_LEECH_ENABLE.lower() == 'true'
 except:
-    QB_LEECH_ENABLE = False
+    QB_LEECH_ENABLE = True
 try:
     TOKEN_PICKLE_URL = getConfig('TOKEN_PICKLE_URL')
     if len(TOKEN_PICKLE_URL) == 0:
