@@ -3,7 +3,6 @@ from string import ascii_letters, digits
 from telegram.ext import CommandHandler
 from threading import Thread
 from time import sleep
-
 from bot.helper.mirror_utils.upload_utils.gdriveTools import GoogleDriveHelper
 from bot.helper.telegram_helper.message_utils import sendMessage, sendMarkup,deleteMessage,delete_all_messages,update_all_messages,sendStatusMessage, auto_delete_message
 from bot.helper.telegram_helper.filters import CustomFilters
@@ -86,7 +85,7 @@ def _clone(message, bot, multi=0):
             LOGGER.info("Checking File/Folder if already in Drive...")
             smsg, button = gd.drive_list(name, True, True)
             if smsg:
-                msg3 = f"<b>{tag}, Your File/Folder is already available in our Drive.</b>\n Your Link will not be cloned.\n\n Name:<code>{name}</code>"
+                msg3 = f"<b>{tag}, Your File/Folder is already available in our Drive.\n\n Hence Your Link will not be cloned.</b>\n\n Name:<code>{name}</code>"
                 return sendMarkup(msg3, bot, message, button)
         if CLONE_LIMIT is not None:
             LOGGER.info("Checking File/Folder Size...")
@@ -94,12 +93,12 @@ def _clone(message, bot, multi=0):
                 msg2 = f"Failed, Clone limit is {CLONE_LIMIT}GB.\nYour File/Folder size is {get_readable_file_size(size)}."
                 return sendMessage(msg2, bot, message)
         if multi > 1:
-            sleep(4)
+            sleep(5)
             nextmsg = type("nextmsg",(object, ), {"chat_id": message.chat_id, "message_id": message.reply_to_message.message_id + 1})
             nextmsg = sendMessage(args[0], bot, nextmsg)
             nextmsg.from_user.id = message.from_user.id
             multi -= 1
-            sleep(4)
+            sleep(5)
             Thread(target=_clone, args=(nextmsg, bot, multi)).start()
         if files <= 20:
             msg = sendMessage(f"Cloning: <code>{link}</code>", bot, message)
@@ -152,6 +151,8 @@ def _clone(message, bot, multi=0):
 def cloneNode(update, context):
     _clone(update.message, context.bot)
 
-
-clone_handler = CommandHandler(BotCommands.CloneCommand, cloneNode, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+if CLONE_ENABLE:
+    clone_handler = CommandHandler(BotCommands.CloneCommand, cloneNode, filters=CustomFilters.authorized_chat | CustomFilters.authorized_user, run_async=True)
+else:
+    clone_handler = CommandHandler(BotCommands.CloneCommand, cloneNode, filters=CustomFilters.owner_filter | CustomFilters.sudo_user, run_async=True)
 dispatcher.add_handler(clone_handler)
