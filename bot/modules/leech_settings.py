@@ -3,34 +3,28 @@ from threading import Thread
 from PIL import Image
 from telegram.ext import CommandHandler, CallbackQueryHandler
 from telegram import InlineKeyboardMarkup
-
 from bot import AS_DOC_USERS, AS_MEDIA_USERS, dispatcher, AS_DOCUMENT, AUTO_DELETE_MESSAGE_DURATION, DB_URI
-from bot.helper.telegram_helper.message_utils import sendMessage, sendMarkup, editMessage, auto_delete_message
+from bot.helper.telegram_helper.message_utils import sendMessage, sendMarkup, editMessage, auto_delete_message, sendPhoto
 from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.telegram_helper import button_build
 from bot.helper.ext_utils.db_handler import DbManger
-
 
 def getleechinfo(from_user):
     user_id = from_user.id
     name = from_user.full_name
     buttons = button_build.ButtonMaker()
     thumbpath = f"Thumbnails/{user_id}.jpg"
-    if (
-        user_id in AS_DOC_USERS
-        or user_id not in AS_MEDIA_USERS
-        and AS_DOCUMENT
-    ):
+    if ( user_id in AS_DOC_USERS or user_id not in AS_MEDIA_USERS and AS_DOCUMENT ):
         ltype = "DOCUMENT"
         buttons.sbutton("Send As Media", f"leechset {user_id} med")
     else:
         ltype = "MEDIA"
         buttons.sbutton("Send As Document", f"leechset {user_id} doc")
-
     if ospath.exists(thumbpath):
         thumbmsg = "Exists"
         buttons.sbutton("Delete Thumbnail", f"leechset {user_id} thumb")
+        buttons.sbutton("Show Thumbnail", f"leechset {user_id} showthumb")
     else:
         thumbmsg = "Not Exists"
 
@@ -58,7 +52,7 @@ def setLeechType(update, context):
     message = query.message
     user_id = query.from_user.id
     data = query.data
-    data = data.split(" ")
+    data = data.split()
     if user_id != int(data[1]):
         query.answer(text="Not Yours!", show_alert=True)
     elif data[2] == "doc":
@@ -67,7 +61,7 @@ def setLeechType(update, context):
         AS_DOC_USERS.add(user_id)
         if DB_URI is not None:
             DbManger().user_doc(user_id)
-        query.answer(text="Your File Will Deliver As Document!", show_alert=True)
+        query.answer(text="Your File Will Be Delivered As Document!", show_alert=True)
         editLeechType(message, query)
     elif data[2] == "med":
         if user_id in AS_DOC_USERS:
@@ -75,7 +69,7 @@ def setLeechType(update, context):
         AS_MEDIA_USERS.add(user_id)
         if DB_URI is not None:
             DbManger().user_media(user_id)
-        query.answer(text="Your File Will Deliver As Media!", show_alert=True)
+        query.answer(text="Your File Will Be Delivered As Media!", show_alert=True)
         editLeechType(message, query)
     elif data[2] == "thumb":
         path = f"Thumbnails/{user_id}.jpg"
@@ -87,6 +81,13 @@ def setLeechType(update, context):
             editLeechType(message, query)
         else:
             query.answer(text="Old Settings", show_alert=True)
+    elif data[2] == "showthumb":
+        path = f"Thumbnails/{user_id}.jpg"
+        if ospath.lexists(path):
+            delo = f"Thumbnail for: {query.from_user.mention_html()} (<code>{str(user_id)}</code>)"
+            editMessage(sendPhoto(text=delo, bot=context.bot, message=message, photo=open(path, 'rb')), delo)
+            Thread(target=auto_delete_message, args=(context.bot, update.message, delo)).start()
+        else: query.answer(text="Send new settings command.")
     else:
         query.answer()
         try:
@@ -103,7 +104,7 @@ def setThumb(update, context):
         if not ospath.isdir(path):
             mkdir(path)
         photo_dir = reply_to.photo[-1].get_file().download()
-        des_dir = ospath.join(path, str(user_id) + ".jpg")
+        des_dir = ospath.join(path, f"{str(user_id)}.jpg")
         Image.open(photo_dir).convert("RGB").save(des_dir, "JPEG")
         osremove(photo_dir)
         if DB_URI is not None:
@@ -120,4 +121,3 @@ but_set_handler = CallbackQueryHandler(setLeechType, pattern="leechset", run_asy
 dispatcher.add_handler(leech_set_handler)
 dispatcher.add_handler(but_set_handler)
 dispatcher.add_handler(set_thumbnail_handler)
-
