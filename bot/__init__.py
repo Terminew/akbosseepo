@@ -30,22 +30,6 @@ basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 
 LOGGER = getLogger(__name__)
 
-CONFIG_FILE_URL = environ.get('CONFIG_FILE_URL')
-try:
-    if len(CONFIG_FILE_URL) == 0:
-        raise TypeError
-    try:
-        res = rget(CONFIG_FILE_URL)
-        if res.status_code == 200:
-            with open('config.env', 'wb+') as f:
-                f.write(res.content)
-        else:
-            log_error(f"Failed to download config.env {res.status_code}")
-    except Exception as e:
-        log_error(f"CONFIG_FILE_URL: {e}")
-except:
-    pass
-
 load_dotenv('config.env', override=True)
 
 def getConfig(name: str):
@@ -75,21 +59,21 @@ try:
 except:
     TORRENT_TIMEOUT = None
 
-PORT = environ.get('PORT')
-Popen([f"gunicorn web.wserver:app --bind 0.0.0.0:{PORT}"], shell=True)
-srun(["last-api", "-d", "--profile=."])
+try:
+    SERVER_PORT = getConfig('SERVER_PORT')
+    if len(SERVER_PORT) == 0:
+        raise KeyError
+except:
+    SERVER_PORT = 80
+    
+Popen(f"gunicorn web.wserver:app --bind 0.0.0.0:{SERVER_PORT}", shell=True)
+srun(["qbittorrent-nox", "-d", "--profile=."])
 if not ospath.exists('.netrc'):
     srun(["touch", ".netrc"])
 srun(["cp", ".netrc", "/root/.netrc"])
 srun(["chmod", "600", ".netrc"])
-trackers = check_output(["curl -Ns https://raw.githubusercontent.com/XIU2/TrackersListCollection/master/all.txt https://ngosang.github.io/trackerslist/trackers_all_http.txt https://newtrackon.com/api/all https://raw.githubusercontent.com/hezhijie0327/Trackerslist/main/trackerslist_tracker.txt | awk '$0' | tr '\n\n' ','"], shell=True).decode('utf-8').rstrip(',')
-if TORRENT_TIMEOUT is not None:
-    with open("a2c.conf", "a+") as a:
-        a.write(f"bt-stop-timeout={TORRENT_TIMEOUT}\n")
-with open("a2c.conf", "a+") as a:
-    a.write(f"bt-tracker={trackers}")
-srun(["extra-api", "--conf-path=/usr/src/app/a2c.conf"])
-alive = Popen(["python3", "alive.py"])
+srun(["chmod", "+x", "aria.sh"])
+srun("./aria.sh", shell=True)
 sleep(0.5)
 
 Interval = []
@@ -187,6 +171,7 @@ try:
 except:
     LOGGER.error("One or more env variables missing! Exiting now")
     exit(1)
+    
 try:
     AUTO_DELETE_UPLOAD_MESSAGE_DURATION = int(getConfig('AUTO_DELETE_UPLOAD_MESSAGE_DURATION'))
 except KeyError as e:
@@ -204,11 +189,11 @@ try:
 except:
     USER_SESSION_STRING = None
     app_session = None
-
+    
 def aria2c_init():
     try:
         log_info("Initializing Aria2c")
-        link = "https://releases.ubuntu.com/21.10/ubuntu-21.10-desktop-amd64.iso.torrent"
+        link = "https://linuxmint.com/torrents/lmde-5-cinnamon-64bit.iso.torrent"
         dire = DOWNLOAD_DIR.rstrip("/")
         aria2.add_uris([link], {'dir': dire})
         sleep(3)
@@ -219,6 +204,7 @@ def aria2c_init():
     except Exception as e:
         log_error(f"Aria2c initializing error: {e}")
 Thread(target=aria2c_init).start()
+sleep(1.5)
 
 try:
     MEGA_KEY = getConfig('MEGA_API_KEY')
