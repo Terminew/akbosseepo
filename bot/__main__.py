@@ -73,21 +73,22 @@ def stats(update, context):
     myStats = sendMarkup(stats, context.bot, update.message, reply_markup=InlineKeyboardMarkup(keyboard))
 
 def call_back_data(update, context):
-    global myStats
+    global main
     chat_id  = update.effective_chat.id
     user_id = update.callback_query.from_user.id
+    bot = context.bot
     query = update.callback_query
     admins = bot.get_chat_member(chat_id, user_id).status in ['creator', 'administrator'] or user_id in [OWNER_ID]
     if admins:
-        myStats.delete()
+        main.delete()
     else:
-        query.answer(text="Why are you Gay!", show_alert=True)
-    myStats = None   
+        query.answer(text="You Don't Own ME 🥱", show_alert=True)
+    main = None 
     
 def start(update, context) -> None:
     buttons = ButtonMaker()
-    buttons.buildbutton("Join Our Channel", "https://t.me/arkmirror")
-    buttons.buildbutton("O W N E R", "https://t.me/include_i0stream")
+    buttons.buildbutton(f"{START_ONE_NAME}", f"{START_ONE_URL}")
+    buttons.buildbutton(f"{START_TWO_NAME}", f"{START_TWO_URL}")
     reply_markup = InlineKeyboardMarkup(buttons.build_menu(2))
     if CustomFilters.authorized_user(update) or CustomFilters.authorized_chat(update):
         start_string = f'''
@@ -116,7 +117,7 @@ def ping(update, context):
     reply = sendMessage("Starting Ping", context.bot, update.message)
     end_time = int(round(time() * 1000))
     editMessage(f'Sheeesh...! {end_time - start_time} ms', reply)
-
+    Thread(target=auto_delete_message, args=(context.bot, update.message, reply)).start()
 
 def log(update, context):
     sendLogFile(context.bot, update.message)
@@ -193,7 +194,7 @@ help_string = f'''
 Heyy, Need Help!?
 '''
 help = telegraph.create_page(
-        title='Ark Mirror Help',
+        title='{GROUP_NAME} Help',
         content=help_string_telegraph,
     )["path"]
 
@@ -224,7 +225,7 @@ sudo_help_string = f'''<br><br><b> Sudo/Owner Only Commands </b><br><br>
 '''
 def bot_help(update, context):
     button = ButtonMaker()
-    button.buildbutton("Click Here", f"https://telegra.ph/{help}")
+    button.buildbutton("Click Here", f"https://graph.org/{help}")
     reply_markup = InlineKeyboardMarkup(button.build_menu(1))
     sendMarkup(help_string, context.bot, update.message, reply_markup)
 
@@ -255,9 +256,11 @@ def main():
                      bot.editMessageText(msg, chat_id, msg_id, parse_mode='HTMl', disable_web_page_preview=True)
                      osremove(".restartmsg")
                 else:
-                    bot.sendMessage(cid, msg, 'HTML')
+                    try:
+                        bot.sendMessage(cid, msg, 'HTML')
+                    except Exception as e:
+                        LOGGER.error(e)
                     
-
     if ospath.isfile(".restartmsg"):
         with open(".restartmsg") as f:
             chat_id, msg_id = map(int, f)
@@ -282,8 +285,13 @@ def main():
     updater.start_polling(drop_pending_updates=IGNORE_PENDING_REQUESTS)
     LOGGER.info("Bot Started!")
     signal(SIGINT, exit_clean_up)
-    
-main()
+
 app.start()
+main()
+
+if USER_SESSION_STRING:
+    app_session.run()
+else:
+    pass
 
 main_loop.run_forever()
